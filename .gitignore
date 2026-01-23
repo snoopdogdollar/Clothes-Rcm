@@ -1,0 +1,30 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Model weights (downloaded automatically by rembg)
+.u2net/
+*.pth
+*.onnx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output folder (optional - remove if you want to track outputs)
+output/*.png
+output/*.jpg
