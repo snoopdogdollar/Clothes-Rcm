@@ -7,6 +7,8 @@ This application uses U-2-Net for salient object detection and segmentation. It 
 - Automatic batch processing of all images in a folder
 - U-2-Net based segmentation using rembg library
 - White background conversion
+- **Clothing classification** using ResNet18-based model trained on articleType categories
+- Conditional alpha matting for high-quality edge refinement
 - Visual display of before/after results
 - Supports multiple image formats (JPG, PNG, BMP, TIFF, WEBP)
 
@@ -86,6 +88,7 @@ PROJECT/
 ├── activate_venv.bat  # Script to activate virtual environment (Windows)
 ├── run.bat            # Script to run the application (Windows)
 ├── venv/              # Virtual environment (created after setup)
+├── models/            # Model files (.pth and class_names.json)
 ├── input/             # Place your images here
 └── output/            # Processed images will be saved here
 ```
@@ -102,9 +105,10 @@ PROJECT/
 
 1. The application scans the `input/` folder for images
 2. Each image is processed using U-2-Net to detect and segment the main object
-3. The background is replaced with white (#FFFFFF)
-4. Results are saved to the `output/` folder
-5. Before/after comparison is displayed (if matplotlib is available)
+3. The segmented object is classified using a ResNet18-based model (trained on articleType categories)
+4. The background is replaced with white (#FFFFFF)
+5. Results are saved to the `output/` folder with the category name in the filename
+6. Before/after comparison is displayed (if matplotlib is available)
 
 ## Requirements
 

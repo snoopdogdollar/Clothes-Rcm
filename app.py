@@ -44,18 +44,21 @@ def sanitize_filename(text):
     text = re.sub(r'[-\s]+', '-', text)
     return text.strip('-')
 
-def process_image(input_path, output_folder, model_path=None, class_names_path=None):
+def process_image(input_path, output_folder, model_path=None, class_names_path=None, 
+                  styles_csv_path=None, use_detailed_classification=True):
     """
-    Process a single image: Segmentation -> Classification
+    Process a single image: Segmentation -> Detailed Classification
     
     Args:
         input_path: Path to input image
         output_folder: Folder to save output image
         model_path: Path to .pth model file (optional, uses default if not provided)
         class_names_path: Path to class_names.json (optional)
+        styles_csv_path: Path to styles.csv for metadata-based rules (optional)
+        use_detailed_classification: Use rule-based detailed classification (default: True)
     
     Returns:
-        tuple: (success: bool, clothing_category: str, confidence: float, output_path: Path)
+        tuple: (success: bool, detailed_category: str, confidence: float, output_path: Path, info: dict)
     """
     try:
         # Read input image
@@ -70,22 +73,30 @@ def process_image(input_path, output_folder, model_path=None, class_names_path=N
         result_image = segment_image(input_image)
         
         # Step 2: Classify clothing
-        clothing_category = "Unknown"
+        category = "Unknown"
         confidence = 0.0
+        top3_predictions = []
+        
         try:
             print("  Classifying clothing type...")
-            clothing_category, confidence = classify_clothing(
-                result_image, 
-                model_path=model_path, 
+            category, confidence, top3_predictions = classify_clothing(
+                result_image,
+                model_path=model_path,
                 class_names_path=class_names_path
             )
-            print(f"  Predicted: {clothing_category} (confidence: {confidence:.2%})")
+            
+            print(f"  Category: {category} (confidence: {confidence:.2%})")
+            if len(top3_predictions) > 1:
+                print(f"  Top 3: {', '.join([f'{c} ({p:.1%})' for c, p in top3_predictions])}")
+        
         except Exception as e:
             print(f"  Classification failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
         
         # Step 3: Create output filename with classification
         # Format: "category - original_filename.png"
-        sanitized_category = sanitize_filename(clothing_category)
+        sanitized_category = sanitize_filename(category)
         original_stem = input_path.stem
         output_filename = f"{sanitized_category} - {original_stem}.png"
         output_path = output_folder / output_filename
@@ -93,12 +104,15 @@ def process_image(input_path, output_folder, model_path=None, class_names_path=N
         # Save the segmented result
         result_image.save(output_path, 'PNG')
         print(f"Saved: {output_path.name}")
+        print()  # Empty line for readability
         
-        return True, clothing_category, confidence, output_path
+        return True, category, confidence, output_path, top3_predictions
         
     except Exception as e:
         print(f"Error processing {input_path.name}: {str(e)}")
-        return False, "Unknown", 0.0, None
+        import traceback
+        traceback.print_exc()
+        return False, "Unknown", 0.0, None, []
 
 
 def display_results(input_path, output_path):
@@ -137,7 +151,7 @@ def display_results(input_path, output_path):
 
 
 def main():
-    """Main function to process all images in the input folder."""
+    """Main function to process all images in the input folder with detailed classification."""
     
     # Define paths
     project_root = Path(__file__).parent
@@ -189,6 +203,8 @@ def main():
     print(f"Output folder: {output_folder}")
     if model_path and model_path.exists():
         print(f"Model: {model_path}")
+        if class_names_path and class_names_path.exists():
+            print(f"Class names: {class_names_path}")
     print()
     
     # Process each image
@@ -198,18 +214,35 @@ def main():
     
     for image_file in image_files:
         # Process image (segmentation + classification)
-        result = process_image(image_file, output_folder, model_path, class_names_path)
-        if isinstance(result, tuple) and len(result) == 4:
-            success, category, confidence, output_path = result
+        result = process_image(
+            image_file, 
+            output_folder, 
+            model_path=model_path, 
+            class_names_path=class_names_path
+        )
+        
+        if isinstance(result, tuple) and len(result) >= 4:
+            success = result[0]
+            category = result[1]
+            confidence = result[2]
+            output_path = result[3]
+            top3 = result[4] if len(result) > 4 else []
         else:
             success = False
             category = "Unknown"
             confidence = 0.0
             output_path = None
+            top3 = []
         
         if success:
             successful += 1
-            classifications.append((image_file.name, category, confidence, output_path.name if output_path else "N/A"))
+            classifications.append((
+                image_file.name, 
+                category, 
+                confidence, 
+                output_path.name if output_path else "N/A",
+                top3
+            ))
             # Display results
             #display_results(image_file, output_path)
         else:
@@ -224,7 +257,12 @@ def main():
     if classifications:
         print(f"\nClassification Results:")
         print(f"{'='*50}")
-        for filename, category, conf, output_name in classifications:
+        for item in classifications:
+            filename = item[0]
+            category = item[1]
+            conf = item[2]
+            output_name = item[3]
+            
             print(f"{filename} -> {output_name}")
             print(f"  Category: {category} ({conf:.2%})")
     

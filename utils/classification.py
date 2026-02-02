@@ -1,5 +1,6 @@
 """
-Clothing classification utilities for Fashion-MNIST trained models.
+Clothing classification utilities for trained models.
+Supports both broad categories (masterCategory) and detailed categories (articleType).
 """
 
 import torch
@@ -9,6 +10,7 @@ from PIL import Image
 from pathlib import Path
 import json
 import timm
+from typing import Tuple, Dict, Optional
 
 
 # Fashion-MNIST class names (in correct order)
@@ -204,8 +206,8 @@ def classify_clothing(image, model_path=None, class_names_path=None):
         class_names_path: Path to JSON file with class names (optional)
     
     Returns:
-        tuple: (predicted_category, confidence_score)
+        tuple: (predicted_category, confidence_score, top3_predictions)
     """
     classifier = get_classifier(model_path, class_names_path)
-    predicted_class, confidence, _ = classifier.classify(image)
-    return predicted_class, confidence
+    predicted_class, confidence, top3 = classifier.classify(image)
+    return predicted_class, confidence, top3
