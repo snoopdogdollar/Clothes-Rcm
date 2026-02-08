@@ -94,6 +94,7 @@ def segment_image(input_image):
     Segment an image using U-2-Net with conditional alpha matting.
     
     Pipeline:
+    0. Resize if too large (prevent memory errors)
     1. Fast Segmentation (no alpha matting)
     2. Binary Mask
     3. Edge Band Extraction
@@ -105,8 +106,17 @@ def segment_image(input_image):
         input_image: PIL Image (RGB)
     
     Returns:
-        PIL Image: Segmented image with white background
+        PIL Image: Segmented image with transparent background
     """
+    # Step 0: Resize large images to prevent memory errors
+    MAX_SIZE = 1500  # Maximum dimension in pixels
+    original_size = input_image.size
+    
+    if max(input_image.size) > MAX_SIZE:
+        # Calculate new size maintaining aspect ratio
+        input_image.thumbnail((MAX_SIZE, MAX_SIZE), Image.Resampling.LANCZOS)
+        print(f"  Resized from {original_size} to {input_image.size} to prevent memory errors")
+    
     # Step 1: Fast Segmentation (no alpha matting)
     output_image = remove(input_image, alpha_matting=False)
     
@@ -133,28 +143,29 @@ def segment_image(input_image):
     
     # Step 5: Conditional Alpha Matting
     if needs_alpha_matting:
-        # Re-run with alpha matting
-        output_image_refined = remove(
-            input_image,
-            alpha_matting=True,
-            alpha_matting_foreground_threshold=250,
-            alpha_matting_background_threshold=10,
-            alpha_matting_erode_size=15
-        )
-        output_array_refined = np.array(output_image_refined)
-        if output_array_refined.shape[2] == 4:
-            alpha = output_array_refined[:, :, 3]
-            rgb = output_array_refined[:, :, :3]
+        try:
+            # Re-run with alpha matting for better edge quality
+            output_image_refined = remove(
+                input_image,
+                alpha_matting=True,
+                alpha_matting_foreground_threshold=250,
+                alpha_matting_background_threshold=10,
+                alpha_matting_erode_size=15
+            )
+            output_array_refined = np.array(output_image_refined)
+            if output_array_refined.shape[2] == 4:
+                alpha = output_array_refined[:, :, 3]
+                rgb = output_array_refined[:, :, :3]
+                print("  ✓ Alpha matting applied for refined edges")
+        except (MemoryError, np.core._exceptions._ArrayMemoryError) as e:
+            print(f"  ⚠ Alpha matting failed (out of memory), using basic segmentation")
+            # Keep the original alpha and rgb from basic segmentation
     
-    # Step 6: Composite with white background
-    white_background = np.ones_like(rgb) * 255
-    
-    # Apply alpha blending
-    alpha_f = alpha.astype(np.float32) / 255.0
-    result = (alpha_f[:, :, None] * rgb +
-        (1 - alpha_f[:, :, None]) * white_background)
-    
-    # Convert back to PIL Image
-    result_image = Image.fromarray(result.astype(np.uint8))
+    # Step 6: Return RGBA image with transparency
+    # Combine RGB channels with alpha channel
+    rgba = np.dstack([rgb, alpha])
+
+    # Convert to PIL Image with transparency
+    result_image = Image.fromarray(rgba.astype(np.uint8), mode='RGBA')
     
     return result_image

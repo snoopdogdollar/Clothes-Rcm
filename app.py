@@ -1,16 +1,18 @@
 """
 U-2-Net Image Segmentation and Clothing Classification Application
-Processes all images: Segmentation -> Classification
+Processes all images: Segmentation -> Classification -> Color Extraction
 """
 
 import sys
 import re
 from pathlib import Path
 from PIL import Image
+import numpy as np
 
 # Import utilities
 from utils.segmentation import segment_image
 from utils.classification import classify_clothing
+from utils.color_extraction import extract_colors_simple
 
 # Check if onnxruntime is installed
 try:
@@ -44,21 +46,18 @@ def sanitize_filename(text):
     text = re.sub(r'[-\s]+', '-', text)
     return text.strip('-')
 
-def process_image(input_path, output_folder, model_path=None, class_names_path=None, 
-                  styles_csv_path=None, use_detailed_classification=True):
+def process_image(input_path, output_folder, model_path=None, class_names_path=None):
     """
-    Process a single image: Segmentation -> Detailed Classification
+    Process a single image: Segmentation -> Classification -> Color Extraction
     
     Args:
         input_path: Path to input image
         output_folder: Folder to save output image
         model_path: Path to .pth model file (optional, uses default if not provided)
         class_names_path: Path to class_names.json (optional)
-        styles_csv_path: Path to styles.csv for metadata-based rules (optional)
-        use_detailed_classification: Use rule-based detailed classification (default: True)
     
     Returns:
-        tuple: (success: bool, detailed_category: str, confidence: float, output_path: Path, info: dict)
+        tuple: (success: bool, category: str, confidence: float, output_path: Path, color_info: dict)
     """
     try:
         # Read input image
@@ -94,11 +93,34 @@ def process_image(input_path, output_folder, model_path=None, class_names_path=N
             import traceback
             traceback.print_exc()
         
-        # Step 3: Create output filename with classification
-        # Format: "category - original_filename.png"
+        # Step 3: Extract dominant colors
+        primary_color = "Unknown"
+        color_info = {}
+        
+        try:
+            print("  Extracting colors...")
+            color_info = extract_colors_simple(result_image, num_colors=3)
+            primary_color = color_info['primary_color']
+            
+            # Display color results
+            color_names = [c['name'] for c in color_info['colors']]
+            color_percentages = [c['percentage'] for c in color_info['colors']]
+            color_display = ', '.join([f"{name} ({pct:.1f}%)" for name, pct in zip(color_names, color_percentages)])
+            
+            print(f"  Colors: {color_display}")
+            print(f"  Palette: {color_info['palette_type']}")
+        
+        except Exception as e:
+            print(f"  Color extraction failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+        
+        # Step 4: Create output filename with color and category
+        # Format: "PrimaryColor-Category-original_filename.png"
+        sanitized_color = sanitize_filename(primary_color)
         sanitized_category = sanitize_filename(category)
         original_stem = input_path.stem
-        output_filename = f"{sanitized_category} - {original_stem}.png"
+        output_filename = f"{sanitized_color}-{sanitized_category}-{original_stem}.png"
         output_path = output_folder / output_filename
         
         # Save the segmented result
@@ -106,13 +128,13 @@ def process_image(input_path, output_folder, model_path=None, class_names_path=N
         print(f"Saved: {output_path.name}")
         print()  # Empty line for readability
         
-        return True, category, confidence, output_path, top3_predictions
+        return True, category, confidence, output_path, color_info
         
     except Exception as e:
         print(f"Error processing {input_path.name}: {str(e)}")
         import traceback
         traceback.print_exc()
-        return False, "Unknown", 0.0, None, []
+        return False, "Unknown", 0.0, None, {}
 
 
 def display_results(input_path, output_path):
@@ -226,13 +248,13 @@ def main():
             category = result[1]
             confidence = result[2]
             output_path = result[3]
-            top3 = result[4] if len(result) > 4 else []
+            color_info = result[4] if len(result) > 4 else {}
         else:
             success = False
             category = "Unknown"
             confidence = 0.0
             output_path = None
-            top3 = []
+            color_info = {}
         
         if success:
             successful += 1
@@ -241,7 +263,7 @@ def main():
                 category, 
                 confidence, 
                 output_path.name if output_path else "N/A",
-                top3
+                color_info
             ))
             # Display results
             #display_results(image_file, output_path)
@@ -262,9 +284,22 @@ def main():
             category = item[1]
             conf = item[2]
             output_name = item[3]
+            color_info = item[4] if len(item) > 4 else {}
             
             print(f"{filename} -> {output_name}")
             print(f"  Category: {category} ({conf:.2%})")
+            
+            # Display color information
+            if color_info and 'primary_color' in color_info:
+                primary = color_info['primary_color']
+                palette = color_info.get('palette_type', 'Unknown')
+                print(f"  Primary Color: {primary} | Palette: {palette}")
+                
+                # Show top colors
+                if 'colors' in color_info and len(color_info['colors']) > 0:
+                    colors_str = ', '.join([f"{c['name']} ({c['percentage']:.0f}%)" 
+                                           for c in color_info['colors'][:3]])
+                    print(f"  Top Colors: {colors_str}")
     
     print(f"{'='*50}")
     print(f"Output saved to: {output_folder}")

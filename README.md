@@ -1,16 +1,18 @@
-# U-2-Net Image Segmentation
+# U-2-Net Image Segmentation & Clothing Analysis
 
-This application uses U-2-Net for salient object detection and segmentation. It processes all images in the input folder and outputs segmented objects on white backgrounds.
+This application uses U-2-Net for salient object detection and segmentation, with advanced clothing classification and color extraction.
 
 ## Features
 
-- Automatic batch processing of all images in a folder
-- U-2-Net based segmentation using rembg library
-- White background conversion
-- **Clothing classification** using ResNet18-based model trained on articleType categories
-- Conditional alpha matting for high-quality edge refinement
-- Visual display of before/after results
-- Supports multiple image formats (JPG, PNG, BMP, TIFF, WEBP)
+- **Automatic batch processing** of all images in a folder
+- **U-2-Net based segmentation** using rembg library with transparent backgrounds
+- **Clothing classification** using ResNet18-based model trained on 145 articleType categories
+- **Advanced color extraction** with 150+ detailed color names (Crimson, Cerulean, etc.)
+- **Color palette analysis** (warm/cool, neutral, vibrant detection)
+- **Smart memory management** - auto-resize large images to prevent crashes
+- **Conditional alpha matting** for high-quality edge refinement
+- **Visual display** of before/after results
+- Supports multiple image formats (JPG, PNG, BMP, TIFF, WEBP, AVIF)
 
 ## Installation
 
@@ -105,10 +107,11 @@ PROJECT/
 
 1. The application scans the `input/` folder for images
 2. Each image is processed using U-2-Net to detect and segment the main object
-3. The segmented object is classified using a ResNet18-based model (trained on articleType categories)
-4. The background is replaced with white (#FFFFFF)
-5. Results are saved to the `output/` folder with the category name in the filename
-6. Before/after comparison is displayed (if matplotlib is available)
+3. The segmented object is classified using a ResNet18-based model (trained on 145 articleType categories)
+4. Dominant colors are extracted using K-means clustering in LAB color space
+5. Colors are mapped to specific names (e.g., "Crimson", "Navy Blue", "Olive Green")
+6. Results are saved to the `output/` folder as transparent PNGs with format: `Color-Category-filename.png`
+7. Summary shows category, confidence, primary color, and palette type for each image
 
 ## Requirements
 
