@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLOTH-ATION | All Items</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/api.js"></script>
+    
+    <script>
+        function openDetails(itemData) {
+            const modal = document.getElementById('itemModal');
+            modal.style.display = 'flex';
+    
+            document.getElementById('modal-img').src = itemData.image;
+            document.getElementById('modal-name').innerText = itemData.name;
+            document.getElementById('modal-color-name').innerText = itemData.colorName;
+            document.getElementById('modal-color-swatch').style.backgroundColor = itemData.colorHex;
+            document.getElementById('modal-material').innerText = itemData.material;
+            document.getElementById('modal-size').innerText = itemData.size;
+            document.getElementById('modal-fit').innerText = itemData.fit;
+            document.getElementById('modal-occasion').innerText = itemData.occasion;
+        }
+    
+        function closePopup(event) {
+            if (event.target.id === 'itemModal') {
+                document.getElementById('itemModal').style.display = 'none';
+            }
+        }
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #1a1a1a; }
+        .glass-card { background: #D1D1D1; border-radius: 24px; }
+        .item-card { 
+            background: #e5e5e5; 
+            border-radius: 20px; 
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .item-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            background: #d8d8d8;
+        }
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center; align-items: center;
+            z-index: 1000; padding: 20px;
+        }
+        .modal-content {
+            background: #D1D1D1; width: 100%; max-width: 800px;
+            border-radius: 32px; position: relative;
+            animation: modalFadeIn 0.3s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .close-modal {
+            position: absolute; top: 20px; right: 20px;
+            width: 40px; height: 40px; background: #1a1a1a;
+            color: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 10;
+        }
+        .black-btn { background: #1a1a1a; color: white; border-radius: 12px; transition: 0.3s; }
+        .black-btn:hover { background: #333; }
+        .filter-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #9ca3af; margin-bottom: 8px; display: block; letter-spacing: 0.1em; }
+        .filter-select { width: 100%; padding: 12px; background: #f3f4f6; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; border: none; outline: none; }
+    </style>
+</head>
+<body class="p-6 md:p-12">
+
+    <header class="flex justify-between items-center max-w-7xl mx-auto w-full mb-12">
+        <h1 class="text-4xl font-black tracking-tighter uppercase cursor-pointer" onclick="window.location.href='index.html'">CLOTH-ATION</h1>
+        <button onclick="window.location.href='upload.html'" class="bg-black text-white px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition">+ Add New</button>
+    </header>
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8">
+        <aside class="md:col-span-3 space-y-8">
+            <div class="space-y-6">
+                <h3 class="text-xs font-black uppercase tracking-[0.3em]">Search & Filters</h3>
+                
+                <input type="text" id="searchInput" placeholder="Search notes..." class="w-full p-4 rounded-xl bg-gray-100 outline-none text-sm border-transparent border focus:border-black transition" onkeyup="handleSearch()">
+
+                <div>
+                    <label class="filter-label">Category</label>
+                    <select id="categoryFilter" class="filter-select" onchange="applyFilters()">
+                        <option>All Categories</option>
+                        <optgroup label="Tops">
+                            <option>T-Shirts</option>
+                            <option>Shirts / Blouses</option>
+                            <option>Hoodies / Sweaters</option>
+                            <option>Jackets / Coats</option>
+                            <option>Tank Tops</option>
+                        </optgroup>
+                        <optgroup label="Bottoms">
+                            <option>Jeans</option>
+                            <option>Trousers / Chinos</option>
+                            <option>Shorts</option>
+                            <option>Skirts</option>
+                        </optgroup>
+                        <optgroup label="Footwear">
+                            <option>Sneakers</option>
+                            <option>Boots</option>
+                            <option>Formal Shoes</option>
+                            <option>Sandals</option>
+                        </optgroup>
+                        <optgroup label="Others">
+                            <option>Dresses</option>
+                            <option>Activewear</option>
+                            <option>Accessories</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="filter-label">Color Family</label>
+                    <select id="colorFilter" class="filter-select" onchange="applyFilters()">
+                        <option>All Colors</option>
+                        <option>Black / Grey</option>
+                        <option>White / Cream</option>
+                        <option>Blue / Navy</option>
+                        <option>Beige / Tan</option>
+                        <option>Olive / Green</option>
+                        <option>Red / Burgundy</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="filter-label">Material</label>
+                    <select id="materialFilter" class="filter-select" onchange="applyFilters()">
+                        <option>All Materials</option>
+                        <option>Cotton</option>
+                        <option>Denim</option>
+                        <option>Leather / Suede</option>
+                        <option>Wool</option>
+                        <option>Silk / Linen</option>
+                        <option>Synthetic</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+
+        <main class="md:col-span-9">
+            <div class="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+                <p id="totalCount" class="text-[10px] font-black uppercase text-gray-400">Total: 0 Items</p>
+                <div class="flex items-center space-x-4">
+                    <span class="text-[10px] font-black uppercase text-gray-400">Sort:</span>
+                    <select class="text-[10px] font-black uppercase bg-transparent outline-none">
+                        <option>Newest First</option>
+                        <option>Category</option>
+                        <option>Color</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="itemsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Items will be loaded from API -->
+                <div class="col-span-full text-center py-12 text-gray-400">
+                    <div class="spinner mx-auto mb-4"></div>
+                    <p class="text-sm uppercase font-bold">Loading items...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="itemModal" class="modal-overlay" onclick="closePopup(event)">
+        <div class="modal-content shadow-2xl" onclick="event.stopPropagation()">
+            <div class="close-modal" onclick="document.getElementById('itemModal').style.display='none'">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2">
+                <div class="p-8 flex items-center justify-center bg-white/30 rounded-l-[32px]">
+                    <img id="modal-img" src="" class="max-w-full max-h-[400px] object-contain">
+                </div>
+                <div class="p-10 flex flex-col justify-center space-y-6">
+                    <div>
+                        <h2 id="modal-name" class="text-3xl font-black uppercase tracking-tighter mb-1">Item Name</h2>
+                        <div class="flex items-center space-x-2">
+                            <div id="modal-color-swatch" class="w-4 h-4 rounded-full border border-black/10"></div>
+                            <span id="modal-color-name" class="text-xs font-bold uppercase text-gray-600">Color</span>
+                        </div>
+                    </div>
+                    <div class="space-y-4 border-t border-black/10 pt-6">
+                        <div class="flex justify-between">
+                            <span class="text-[10px] font-bold uppercase text-gray-500">Material</span>
+                            <span id="modal-material" class="text-sm font-black uppercase">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-[10px] font-bold uppercase text-gray-500">Size</span>
+                            <span id="modal-size" class="text-sm font-black uppercase">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-[10px] font-bold uppercase text-gray-500">Fit</span>
+                            <span id="modal-fit" class="text-sm font-black uppercase">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-[10px] font-bold uppercase text-gray-500">Occasion</span>
+                            <span id="modal-occasion" class="text-sm font-black uppercase">-</span>
+                        </div>
+                    </div>
+                    <button class="black-btn w-full py-4 text-xs font-bold uppercase tracking-widest" onclick="document.getElementById('itemModal').style.display='none'">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#e5e5e5]/90 backdrop-blur px-10 py-4 rounded-full shadow-xl border border-white/20 flex space-x-12">
+        <a href="dressing-room.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Dressing Room</a>
+        <a href="wardrobe.html" class="text-[10px] font-bold uppercase border-b-2 border-black">Wardrobe</a>
+        <a href="index.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Home</a>
+    </nav>
+
+    <script>
+        let currentFilters = {};
+        let searchTimeout = null;
+
+        // Load items when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            loadItems();
+        });
+
+        // Load items from API
+        async function loadItems() {
+            try {
+                const data = await getItems(currentFilters);
+                
+                // Update total count
+                document.getElementById('totalCount').textContent = `Total: ${data.total} Items`;
+                
+                // Display items
+                displayItems(data.items);
+                
+            } catch (error) {
+                console.error('Failed to load items:', error);
+                const grid = document.getElementById('itemsGrid');
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-red-500 font-bold uppercase mb-4">Failed to load items</p>
+                        <p class="text-sm text-gray-500 mb-4">Make sure API is running: python api.py</p>
+                        <button onclick="loadItems()" class="bg-black text-white px-6 py-2 rounded-lg text-xs font-bold uppercase">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Display items in grid
+        function displayItems(items) {
+            const grid = document.getElementById('itemsGrid');
+            
+            if (items.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-400 font-bold uppercase mb-4">No items found</p>
+                        <button onclick="window.location.href='upload.html'" class="bg-black text-white px-6 py-2 rounded-lg text-xs font-bold uppercase">Upload First Item</button>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = '';
+            
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'item-card p-4 flex flex-col';
+                card.innerHTML = `
+                    <div class="aspect-square bg-white rounded-xl mb-4 flex items-center justify-center p-4">
+                        <img src="${getItemImageUrl(item.id, 'segmented')}" class="max-h-full object-contain" alt="${item.category}">
+                    </div>
+                    <div class="space-y-1 mb-4">
+                        <h4 class="text-sm font-black uppercase">${item.primary_color || 'Unknown'} ${item.category || 'Item'}</h4>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase">${item.material || 'Unknown'} • Size ${item.size || '?'}</p>
+                        <p class="text-[10px] text-gray-400 uppercase">${item.palette_type || ''}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="viewItemDetails(${item.id})" class="bg-white py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-black hover:text-white transition">View</button>
+                        <button onclick="confirmDelete(${item.id})" class="bg-gray-200 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-red-500 hover:text-white transition">Delete</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // View item details in modal
+        async function viewItemDetails(itemId) {
+            try {
+                const item = await getItem(itemId);
+                
+                const modal = document.getElementById('itemModal');
+                modal.style.display = 'flex';
+                
+                document.getElementById('modal-img').src = getItemImageUrl(item.id, 'segmented');
+                document.getElementById('modal-name').innerText = `${item.primary_color} ${item.category}`;
+                document.getElementById('modal-color-name').innerText = item.primary_color;
+                
+                // Set color swatch (use first color)
+                if (item.colors && item.colors.length > 0) {
+                    document.getElementById('modal-color-swatch').style.backgroundColor = item.colors[0].color_hex;
+                }
+                
+                document.getElementById('modal-material').innerText = item.material || '-';
+                document.getElementById('modal-size').innerText = item.size || '-';
+                document.getElementById('modal-fit').innerText = 'Regular';  // Not in DB yet
+                document.getElementById('modal-occasion').innerText = 'Casual';  // Not in DB yet
+                
+            } catch (error) {
+                showError('Failed to load item details');
+            }
+        }
+
+        // Delete item with confirmation
+        async function confirmDelete(itemId) {
+            if (!confirm('Are you sure you want to delete this item?')) return;
+            
+            try {
+                await deleteItem(itemId);
+                showSuccess('Item deleted successfully');
+                loadItems();  // Reload
+            } catch (error) {
+                showError('Failed to delete item');
+            }
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const category = document.getElementById('categoryFilter').value;
+            const color = document.getElementById('colorFilter').value;
+            const material = document.getElementById('materialFilter').value;
+            
+            currentFilters = {};
+            
+            if (category !== 'All Categories') currentFilters.category = category;
+            if (color !== 'All Colors') currentFilters.color = color;
+            if (material !== 'All Materials') currentFilters.material = material;
+            
+            loadItems();
+        }
+
+        // Handle search with debounce
+        function handleSearch() {
+            clearTimeout(searchTimeout);
+            
+            searchTimeout = setTimeout(() => {
+                const searchValue = document.getElementById('searchInput').value.trim();
+                
+                if (searchValue) {
+                    currentFilters.search = searchValue;
+                } else {
+                    delete currentFilters.search;
+                }
+                
+                loadItems();
+            }, 500);  // Wait 500ms after user stops typing
+        }
+
+        // Add spinner CSS if not already defined
+        if (!document.querySelector('style[data-spinner]')) {
+            const style = document.createElement('style');
+            style.setAttribute('data-spinner', '');
+            style.textContent = `
+                .spinner {
+                    border: 4px solid #f3f4f6;
+                    border-top: 4px solid #1a1a1a;
+                    border-radius: 50%;
+                    width: 48px;
+                    height: 48px;
+                    animation: spin 1s linear infinite;
+                    display: inline-block;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    </script>
+
+</body>
+</html>

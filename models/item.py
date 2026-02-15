@@ -2,7 +2,7 @@
 SQLAlchemy ORM models for clothing items and colors
 """
 
-from sqlalchemy import Column, Integer, String, Text, DECIMAL, Date, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DECIMAL, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -24,7 +24,6 @@ class ClothingItem(Base):
     
     # AI Classification Results
     category = Column(String(100), index=True)
-    confidence = Column(DECIMAL(5, 4))  # e.g., 0.8945
     
     # AI Color Analysis
     primary_color = Column(String(50), index=True)
@@ -33,8 +32,6 @@ class ClothingItem(Base):
     # User Input Data
     material = Column(String(100))
     size = Column(String(20))
-    brand = Column(String(100))
-    purchase_date = Column(Date)
     notes = Column(Text)
     
     # Timestamps
@@ -64,13 +61,10 @@ class ClothingItem(Base):
             'original_image_path': self.original_image_path,
             'segmented_image_path': self.segmented_image_path,
             'category': self.category,
-            'confidence': float(self.confidence) if self.confidence else None,
             'primary_color': self.primary_color,
             'palette_type': self.palette_type,
             'material': self.material,
             'size': self.size,
-            'brand': self.brand,
-            'purchase_date': self.purchase_date.isoformat() if self.purchase_date else None,
             'notes': self.notes,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,

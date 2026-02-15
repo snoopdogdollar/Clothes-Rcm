@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import List, Optional
 from pathlib import Path
-from datetime import date
 import shutil
 from pydantic import BaseModel
 
@@ -55,8 +54,6 @@ class ItemUpdateRequest(BaseModel):
     """Request model for updating item data"""
     material: Optional[str] = None
     size: Optional[str] = None
-    brand: Optional[str] = None
-    purchase_date: Optional[date] = None
     notes: Optional[str] = None
 
 class ItemResponse(BaseModel):
@@ -149,7 +146,6 @@ async def upload_item(
             original_image_path=str(upload_path),
             segmented_image_path=str(output_path),
             category=category,
-            confidence=confidence,
             primary_color=primary_color,
             palette_type=color_info.get('palette_type', 'Unknown')
         )
@@ -178,7 +174,6 @@ async def upload_item(
             "item_id": new_item.id,
             "filename": file.filename,
             "category": category,
-            "confidence": float(confidence),
             "primary_color": primary_color,
             "palette_type": color_info.get('palette_type'),
             "colors": color_info.get('colors', []),
@@ -199,7 +194,7 @@ def update_item(
     db: Session = Depends(get_db)
 ):
     """
-    Update item with user-provided data (material, size, brand, etc.)
+    Update item with user-provided data (material, size, notes)
     """
     # Find item
     item = db.query(ClothingItem).filter(ClothingItem.id == item_id).first()
@@ -212,10 +207,6 @@ def update_item(
         item.material = item_data.material
     if item_data.size is not None:
         item.size = item_data.size
-    if item_data.brand is not None:
-        item.brand = item_data.brand
-    if item_data.purchase_date is not None:
-        item.purchase_date = item_data.purchase_date
     if item_data.notes is not None:
         item.notes = item_data.notes
     

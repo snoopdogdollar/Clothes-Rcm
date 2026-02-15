@@ -28,3 +28,9 @@ Thumbs.db
 # Output folder (optional - remove if you want to track outputs)
 output/*.png
 output/*.jpg
+/data/uploads
+/input
+*.jpg
+*.jpg
+input/8580.jpg
+/input

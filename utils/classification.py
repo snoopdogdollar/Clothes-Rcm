@@ -191,6 +191,13 @@ def get_classifier(model_path=None, class_names_path=None):
                     "No model path provided and default model not found.\n"
                     "Please provide model_path or place model at: models/clothing_classifier.pth"
                 )
+        
+        # Auto-find class_names.json if not provided
+        if class_names_path is None:
+            default_class_names = Path(__file__).parent.parent / 'models' / 'class_names.json'
+            if default_class_names.exists():
+                class_names_path = default_class_names
+        
         _classifier = ClothingClassifier(model_path, class_names_path)
     
     return _classifier

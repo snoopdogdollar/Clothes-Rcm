@@ -1072,8 +1072,24 @@ def extract_colors_simple(pil_image, num_colors=3):
     extractor = KaggleColorExtractor(num_colors=num_colors)
     result = extractor.extract_from_image(np.array(pil_image), is_path=False)
     
+    # Convert numpy types to native Python types for JSON serialization
+    colors_cleaned = []
+    for color in result['colors']:
+        # rgb is a list [r, g, b], not a dict
+        rgb_list = color['rgb']
+        colors_cleaned.append({
+            'name': str(color['name']),
+            'rgb': {
+                'r': int(rgb_list[0]),
+                'g': int(rgb_list[1]),
+                'b': int(rgb_list[2])
+            },
+            'hex': str(color['hex']),
+            'percentage': float(color['percentage'])
+        })
+    
     return {
-        'primary_color': result['dominant_color']['name'],
-        'colors': result['colors'],
-        'palette_type': result['palette_type']
+        'primary_color': str(result['dominant_color']['name']),
+        'colors': colors_cleaned,
+        'palette_type': str(result['palette_type'])
     }
