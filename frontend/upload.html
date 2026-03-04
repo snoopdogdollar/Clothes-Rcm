@@ -10,6 +10,10 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap" rel="stylesheet">
     
+    <script>
+        if (!isLoggedIn()) { window.location.replace('login.html'); }
+    </script>
+    
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #1a1a1a; }
         .glass-card { background: #D1D1D1; border-radius: 24px; }
@@ -92,6 +96,36 @@
             object-fit: contain;
             padding: 8px;
         }
+        
+        /* Item detail modal (same as wardrobe) */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center; align-items: center;
+            z-index: 1000; padding: 20px;
+        }
+        .modal-content {
+            background: #D1D1D1; width: 100%; max-width: 800px;
+            border-radius: 32px; position: relative;
+            animation: modalFadeIn 0.3s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .close-modal {
+            position: absolute; top: 20px; right: 20px;
+            width: 40px; height: 40px; background: #1a1a1a;
+            color: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 10;
+        }
+        .black-btn { background: #1a1a1a; color: white; border-radius: 12px; transition: 0.3s; }
+        .black-btn:hover { background: #333; }
+        .modal-name-display:hover .modal-name-text { text-decoration: underline; text-underline-offset: 4px; background: rgba(0,0,0,0.04); border-radius: 4px; }
+        .modal-name-display { padding: 2px 4px; margin: -2px -4px; border-radius: 4px; }
     </style>
 </head>
 <body class="p-6 md:p-12 min-h-screen">
@@ -279,12 +313,62 @@
             </div>
         </div>
 
+        <!-- Item detail modal (same as wardrobe popup) -->
+        <div id="itemModal" class="modal-overlay" onclick="if(event.target.id==='itemModal') document.getElementById('itemModal').style.display='none'">
+            <div class="modal-content shadow-2xl" onclick="event.stopPropagation()">
+                <div class="close-modal" onclick="document.getElementById('itemModal').style.display='none'">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2">
+                    <div class="p-8 flex items-center justify-center bg-white/30 rounded-l-[32px]">
+                        <img id="upload-modal-img" src="" class="max-w-full max-h-[400px] object-contain">
+                    </div>
+                    <div class="p-10 flex flex-col justify-center space-y-6">
+                        <div>
+                            <div id="upload-modal-name-wrapper" class="mb-1">
+                                <div id="upload-modal-name-display" class="modal-name-display group flex items-center gap-2 cursor-text" title="Click to rename">
+                                    <span id="upload-modal-name-text" class="modal-name-text text-3xl font-black uppercase tracking-tighter">Item Name</span>
+                                    <svg class="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </div>
+                                <input type="text" id="upload-modal-name-input" class="modal-name-input text-3xl font-black uppercase tracking-tighter w-full bg-gray-100 border-2 border-black rounded-lg px-2 py-1 outline-none" style="display: none" maxlength="120">
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div id="upload-modal-color-swatch" class="w-4 h-4 rounded-full border border-black/10"></div>
+                                <span id="upload-modal-color-name" class="text-xs font-bold uppercase text-gray-600">Color</span>
+                            </div>
+                        </div>
+                        <div class="space-y-4 border-t border-black/10 pt-6">
+                            <div class="flex justify-between">
+                                <span class="text-[10px] font-bold uppercase text-gray-500">Material</span>
+                                <span id="upload-modal-material" class="text-sm font-black uppercase">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-[10px] font-bold uppercase text-gray-500">Size</span>
+                                <span id="upload-modal-size" class="text-sm font-black uppercase">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-[10px] font-bold uppercase text-gray-500">Fit</span>
+                                <span id="upload-modal-fit" class="text-sm font-black uppercase">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-[10px] font-bold uppercase text-gray-500">Occasion</span>
+                                <span id="upload-modal-occasion" class="text-sm font-black uppercase">-</span>
+                            </div>
+                        </div>
+                        <button class="black-btn w-full py-4 text-xs font-bold uppercase tracking-widest" onclick="document.getElementById('itemModal').style.display='none'">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#e5e5e5]/90 backdrop-blur px-10 py-4 rounded-full shadow-xl border border-white/20 flex space-x-12">
         <a href="dressing-room.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Dressing Room</a>
+        <a href="outfits.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Outfits</a>
         <a href="wardrobe.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Wardrobe</a>
         <a href="index.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Home</a>
+        <a href="#" onclick="logout(); return false;" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Logout</a>
     </nav>
 
     <script>
@@ -321,15 +405,15 @@
             // Create color backgrounds for items
             const colors = ['#000000', '#1A1A1A', '#333333', '#4D4D4D'];
             
-            // Build HTML for items
+            // Build HTML for items (clickable, with item id for modal)
             let itemsHTML = '';
             items.forEach((item, index) => {
                 const bgColor = colors[index % colors.length];
                 itemsHTML += `
-                    <div class="marquee-item" style="background-color: ${bgColor};">
+                    <div class="marquee-item" data-item-id="${item.id}" style="background-color: ${bgColor};" onclick="openItemModal(${item.id})">
                         <img src="${getItemImageUrl(item.id, 'segmented')}" 
-                             alt="${item.category}" 
-                             title="${item.primary_color} ${item.category}">
+                             alt="${(item.primary_color || '') + ' ' + (item.category || '')}" 
+                             title="Click to view details">
                     </div>
                 `;
             });
@@ -337,6 +421,79 @@
             // Duplicate items for seamless loop
             marquee.innerHTML = itemsHTML + itemsHTML;
         }
+        
+        // Open item detail modal when clicking a marquee item (same as wardrobe popup)
+        let uploadModalItemId = null;
+        let uploadModalDefaultName = '';
+        
+        function getItemDisplayName(itemId, defaultName) {
+            const saved = localStorage.getItem('wardrobe_item_name_' + itemId);
+            return (saved && saved.trim()) ? saved.trim() : defaultName;
+        }
+        
+        async function openItemModal(itemId) {
+            try {
+                const item = await getItem(itemId);
+                uploadModalItemId = item.id;
+                uploadModalDefaultName = `${item.primary_color || ''} ${item.category || 'Item'}`.trim() || 'Item';
+                const displayName = getItemDisplayName(item.id, uploadModalDefaultName);
+                
+                document.getElementById('itemModal').style.display = 'flex';
+                document.getElementById('upload-modal-img').src = getItemImageUrl(item.id, 'segmented');
+                document.getElementById('upload-modal-name-text').textContent = displayName;
+                document.getElementById('upload-modal-name-input').value = displayName;
+                document.getElementById('upload-modal-name-display').style.display = 'flex';
+                document.getElementById('upload-modal-name-input').style.display = 'none';
+                document.getElementById('upload-modal-color-name').textContent = item.primary_color || '-';
+                document.getElementById('upload-modal-color-swatch').style.backgroundColor = (item.colors && item.colors[0]) ? item.colors[0].color_hex : '#ccc';
+                document.getElementById('upload-modal-material').textContent = item.material || '-';
+                document.getElementById('upload-modal-size').textContent = item.size || '-';
+                document.getElementById('upload-modal-fit').textContent = 'Regular';
+                document.getElementById('upload-modal-occasion').textContent = 'Casual';
+            } catch (e) {
+                showError('Failed to load item details');
+            }
+        }
+        
+        function initUploadModalNameEdit() {
+            const display = document.getElementById('upload-modal-name-display');
+            const textEl = document.getElementById('upload-modal-name-text');
+            const input = document.getElementById('upload-modal-name-input');
+            if (!display || !textEl || !input) return;
+            display.addEventListener('click', function(e) {
+                e.stopPropagation();
+                textEl.textContent = input.value.trim() || uploadModalDefaultName;
+                input.value = textEl.textContent;
+                display.style.display = 'none';
+                input.style.display = 'block';
+                input.focus();
+                input.select();
+            });
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const newName = input.value.trim() || uploadModalDefaultName;
+                    if (uploadModalItemId != null) {
+                        localStorage.setItem('wardrobe_item_name_' + uploadModalItemId, newName);
+                        textEl.textContent = newName;
+                        showSuccess('Name updated');
+                    }
+                    input.style.display = 'none';
+                    display.style.display = 'flex';
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    input.value = textEl.textContent;
+                    input.style.display = 'none';
+                    display.style.display = 'flex';
+                }
+            });
+            input.addEventListener('blur', function() {
+                input.value = textEl.textContent;
+                input.style.display = 'none';
+                display.style.display = 'flex';
+            });
+        }
+        window.addEventListener('DOMContentLoaded', initUploadModalNameEdit);
 
         // Drag and drop handlers
         const uploadArea = document.getElementById('uploadArea');

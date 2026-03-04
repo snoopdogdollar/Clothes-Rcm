@@ -3,7 +3,7 @@ FastAPI REST API for Fashion Wardrobe Application
 Provides endpoints for uploading, managing, and retrieving clothing items
 """
 
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -11,10 +11,11 @@ from sqlalchemy import or_
 from typing import List, Optional
 from pathlib import Path
 import shutil
+import hashlib
 from pydantic import BaseModel
 
 # Import models and database
-from models.item import ClothingItem, ItemColor
+from models.item import ClothingItem, ItemColor, Outfit
 from utils.database import get_db, init_db
 from config import Config
 
@@ -69,6 +70,58 @@ class ItemResponse(BaseModel):
     brand: Optional[str]
     colors: List[dict]
 
+class LoginRequest(BaseModel):
+    """Request model for login"""
+    username: str
+    password: str
+
+class OutfitCreateRequest(BaseModel):
+    """Request model for saving an outfit"""
+    name: Optional[str] = None
+    top_id: Optional[int] = None
+    bottom_id: Optional[int] = None
+    shoes_id: Optional[int] = None
+
+class OutfitUpdateRequest(BaseModel):
+    """Request model for updating an outfit"""
+    name: Optional[str] = None
+
+# ==================== Auth (Option A: single admin) ====================
+
+def _get_admin_token() -> str:
+    """Return token to give to client on successful login (from .env or derived)."""
+    token = getattr(Config, 'ADMIN_TOKEN', None)
+    if token and str(token).strip():
+        return str(token).strip()
+    return hashlib.sha256(
+        (Config.SECRET_KEY + Config.ADMIN_USERNAME).encode()
+    ).hexdigest()
+
+@app.post("/api/auth/login")
+def login(data: LoginRequest):
+    """
+    Login with admin username and password.
+    Credentials are stored in .env (ADMIN_USERNAME, ADMIN_PASSWORD).
+    Returns a token to store in localStorage.
+    """
+    if data.username != Config.ADMIN_USERNAME or data.password != Config.ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail='Invalid username or password')
+    return {
+        'success': True,
+        'token': _get_admin_token(),
+        'message': 'Login successful'
+    }
+
+@app.get("/api/auth/me")
+def auth_me(authorization: Optional[str] = Header(None)):
+    """Check if current token is valid."""
+    if not authorization or not authorization.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail='Not authenticated')
+    token = authorization.replace('Bearer ', '', 1).strip()
+    if token != _get_admin_token():
+        raise HTTPException(status_code=401, detail='Invalid token')
+    return {'logged_in': True, 'username': Config.ADMIN_USERNAME}
+
 # ==================== API Endpoints ====================
 
 @app.get("/")
@@ -78,12 +131,19 @@ def root():
         "message": "Fashion Wardrobe API",
         "version": "1.0.0",
         "endpoints": {
+            "auth_login": "POST /api/auth/login",
+            "auth_me": "GET /api/auth/me",
             "upload": "POST /api/items/upload",
             "list": "GET /api/items",
             "get": "GET /api/items/{item_id}",
             "update": "PUT /api/items/{item_id}",
             "delete": "DELETE /api/items/{item_id}",
-            "image": "GET /api/items/{item_id}/image"
+            "image": "GET /api/items/{item_id}/image",
+            "outfits_create": "POST /api/outfits",
+            "outfits_list": "GET /api/outfits",
+            "outfits_get": "GET /api/outfits/{outfit_id}",
+            "outfits_update": "PUT /api/outfits/{outfit_id}",
+            "outfits_delete": "DELETE /api/outfits/{outfit_id}"
         }
     }
 
@@ -223,6 +283,10 @@ def update_item(
 @app.get("/api/items")
 def get_items(
     category: Optional[str] = Query(None, description="Filter by category"),
+    category_group: Optional[str] = Query(
+        None,
+        description="Comma-separated list of categories (used for UI groups like TOPS/BOTTOMS/FOOTWEAR)",
+    ),
     color: Optional[str] = Query(None, description="Filter by primary color"),
     material: Optional[str] = Query(None, description="Filter by material"),
     size: Optional[str] = Query(None, description="Filter by size"),
@@ -239,6 +303,10 @@ def get_items(
     # Apply filters
     if category:
         query = query.filter(ClothingItem.category == category)
+    if category_group:
+        categories = [c.strip() for c in category_group.split(",") if c.strip()]
+        if categories:
+            query = query.filter(ClothingItem.category.in_(categories))
     if color:
         query = query.filter(ClothingItem.primary_color.ilike(f"%{color}%"))
     if material:
@@ -328,6 +396,66 @@ def get_item_image(
         raise HTTPException(status_code=404, detail=f"Image file not found")
     
     return FileResponse(image_path)
+
+# ==================== Outfit Endpoints ====================
+
+@app.post("/api/outfits")
+def create_outfit(data: OutfitCreateRequest, db: Session = Depends(get_db)):
+    """Save a new outfit combination."""
+    if not data.top_id and not data.bottom_id and not data.shoes_id:
+        raise HTTPException(status_code=400, detail="Outfit must have at least one item")
+
+    outfit = Outfit(
+        name=data.name,
+        top_id=data.top_id,
+        bottom_id=data.bottom_id,
+        shoes_id=data.shoes_id,
+    )
+    db.add(outfit)
+    db.commit()
+    db.refresh(outfit)
+    return {"success": True, "outfit": outfit.to_dict()}
+
+
+@app.get("/api/outfits")
+def list_outfits(db: Session = Depends(get_db)):
+    """List all saved outfits (newest first)."""
+    outfits = db.query(Outfit).order_by(Outfit.created_at.desc()).all()
+    return {"total": len(outfits), "outfits": [o.to_dict() for o in outfits]}
+
+
+@app.get("/api/outfits/{outfit_id}")
+def get_outfit(outfit_id: int, db: Session = Depends(get_db)):
+    """Get a single outfit by ID."""
+    outfit = db.query(Outfit).filter(Outfit.id == outfit_id).first()
+    if not outfit:
+        raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
+    return outfit.to_dict()
+
+
+@app.put("/api/outfits/{outfit_id}")
+def update_outfit(outfit_id: int, data: OutfitUpdateRequest, db: Session = Depends(get_db)):
+    """Update an outfit (e.g. rename)."""
+    outfit = db.query(Outfit).filter(Outfit.id == outfit_id).first()
+    if not outfit:
+        raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
+    if data.name is not None:
+        outfit.name = data.name.strip() or None
+    db.commit()
+    db.refresh(outfit)
+    return {"success": True, "outfit": outfit.to_dict()}
+
+
+@app.delete("/api/outfits/{outfit_id}")
+def delete_outfit(outfit_id: int, db: Session = Depends(get_db)):
+    """Delete a saved outfit."""
+    outfit = db.query(Outfit).filter(Outfit.id == outfit_id).first()
+    if not outfit:
+        raise HTTPException(status_code=404, detail=f"Outfit {outfit_id} not found")
+    db.delete(outfit)
+    db.commit()
+    return {"success": True, "message": f"Outfit {outfit_id} deleted", "deleted_id": outfit_id}
+
 
 # ==================== Statistics Endpoints (Bonus) ====================
 

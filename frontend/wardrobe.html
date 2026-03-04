@@ -9,6 +9,7 @@
     <script src="js/api.js"></script>
     
     <script>
+        if (!isLoggedIn()) { window.location.replace('login.html'); }
         function openDetails(itemData) {
             const modal = document.getElementById('itemModal');
             modal.style.display = 'flex';
@@ -41,6 +42,12 @@
             transition: all 0.3s ease;
             border: 1px solid rgba(255,255,255,0.2);
         }
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
         .item-card:hover { 
             transform: translateY(-5px); 
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
@@ -72,6 +79,8 @@
         }
         .black-btn { background: #1a1a1a; color: white; border-radius: 12px; transition: 0.3s; }
         .black-btn:hover { background: #333; }
+        .modal-name-display:hover .modal-name-text { text-decoration: underline; text-underline-offset: 4px; background: rgba(0,0,0,0.04); border-radius: 4px; }
+        .modal-name-display { padding: 2px 4px; margin: -2px -4px; border-radius: 4px; }
         .filter-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #9ca3af; margin-bottom: 8px; display: block; letter-spacing: 0.1em; }
         .filter-select { width: 100%; padding: 12px; background: #f3f4f6; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; border: none; outline: none; }
     </style>
@@ -183,7 +192,13 @@
                 </div>
                 <div class="p-10 flex flex-col justify-center space-y-6">
                     <div>
-                        <h2 id="modal-name" class="text-3xl font-black uppercase tracking-tighter mb-1">Item Name</h2>
+                        <div id="modal-name-wrapper" class="mb-1">
+                            <div id="modal-name-display" class="modal-name-display group flex items-center gap-2 cursor-text" title="Click to rename">
+                                <span id="modal-name-text" class="modal-name-text text-3xl font-black uppercase tracking-tighter">Item Name</span>
+                                <svg class="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </div>
+                            <input type="text" id="modal-name-input" class="modal-name-input text-3xl font-black uppercase tracking-tighter w-full bg-gray-100 border-2 border-black rounded-lg px-2 py-1 outline-none" style="display: none" maxlength="120">
+                        </div>
                         <div class="flex items-center space-x-2">
                             <div id="modal-color-swatch" class="w-4 h-4 rounded-full border border-black/10"></div>
                             <span id="modal-color-name" class="text-xs font-bold uppercase text-gray-600">Color</span>
@@ -215,8 +230,10 @@
 
     <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#e5e5e5]/90 backdrop-blur px-10 py-4 rounded-full shadow-xl border border-white/20 flex space-x-12">
         <a href="dressing-room.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Dressing Room</a>
+        <a href="outfits.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Outfits</a>
         <a href="wardrobe.html" class="text-[10px] font-bold uppercase border-b-2 border-black">Wardrobe</a>
         <a href="index.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Home</a>
+        <a href="#" onclick="logout(); return false;" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Logout</a>
     </nav>
 
     <script>
@@ -269,18 +286,26 @@
             grid.innerHTML = '';
             
             items.forEach(item => {
+                const displayName = getItemDisplayName(item.id, `${item.primary_color || ''} ${item.category || 'Item'}`.trim());
                 const card = document.createElement('div');
-                card.className = 'item-card p-4 flex flex-col';
+                card.className = 'item-card p-4 flex flex-col h-full';
+                card.setAttribute('data-item-id', item.id);
+
+                const meta = [];
+                if (item.material) meta.push(item.material);
+                if (item.size) meta.push('Size ' + item.size);
+                const metaLine = meta.length > 0 ? meta.join(' \u2022 ') : '';
+
                 card.innerHTML = `
-                    <div class="aspect-square bg-white rounded-xl mb-4 flex items-center justify-center p-4">
-                        <img src="${getItemImageUrl(item.id, 'segmented')}" class="max-h-full object-contain" alt="${item.category}">
+                    <div class="aspect-square bg-white rounded-xl mb-4 flex items-center justify-center p-4 overflow-hidden">
+                        <img src="${getItemImageUrl(item.id, 'segmented')}" class="w-full h-full object-contain" alt="${item.category || ''}">
                     </div>
-                    <div class="space-y-1 mb-4">
-                        <h4 class="text-sm font-black uppercase">${item.primary_color || 'Unknown'} ${item.category || 'Item'}</h4>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase">${item.material || 'Unknown'} • Size ${item.size || '?'}</p>
-                        <p class="text-[10px] text-gray-400 uppercase">${item.palette_type || ''}</p>
+                    <div class="space-y-1 flex-grow min-h-0">
+                        <h4 class="card-item-name text-sm font-black uppercase leading-tight line-clamp-2">${escapeHtml(displayName)}</h4>
+                        ${metaLine ? `<p class="text-[10px] font-bold text-gray-400 uppercase truncate">${escapeHtml(metaLine)}</p>` : ''}
+                        ${item.palette_type ? `<p class="text-[10px] text-gray-400 uppercase truncate">${escapeHtml(item.palette_type)}</p>` : ''}
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-2 gap-2 mt-3 flex-shrink-0">
                         <button onclick="viewItemDetails(${item.id})" class="bg-white py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-black hover:text-white transition">View</button>
                         <button onclick="confirmDelete(${item.id})" class="bg-gray-200 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-red-500 hover:text-white transition">Delete</button>
                     </div>
@@ -289,32 +314,97 @@
             });
         }
 
+        // Get display name (custom name from localStorage or default)
+        function getItemDisplayName(itemId, defaultName) {
+            const saved = localStorage.getItem('wardrobe_item_name_' + itemId);
+            return (saved && saved.trim()) ? saved.trim() : defaultName;
+        }
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
         // View item details in modal
+        let currentModalItemId = null;
+        let currentModalDefaultName = '';
+        
         async function viewItemDetails(itemId) {
             try {
                 const item = await getItem(itemId);
+                currentModalItemId = item.id;
+                currentModalDefaultName = `${item.primary_color || ''} ${item.category || 'Item'}`.trim() || 'Item';
+                const displayName = getItemDisplayName(item.id, currentModalDefaultName);
                 
                 const modal = document.getElementById('itemModal');
                 modal.style.display = 'flex';
                 
                 document.getElementById('modal-img').src = getItemImageUrl(item.id, 'segmented');
-                document.getElementById('modal-name').innerText = `${item.primary_color} ${item.category}`;
-                document.getElementById('modal-color-name').innerText = item.primary_color;
+                document.getElementById('modal-name-text').textContent = displayName;
+                document.getElementById('modal-name-input').value = displayName;
+                document.getElementById('modal-name-display').style.display = 'flex';
+                document.getElementById('modal-name-input').style.display = 'none';
+                document.getElementById('modal-color-name').innerText = item.primary_color || '-';
                 
                 // Set color swatch (use first color)
                 if (item.colors && item.colors.length > 0) {
                     document.getElementById('modal-color-swatch').style.backgroundColor = item.colors[0].color_hex;
+                } else {
+                    document.getElementById('modal-color-swatch').style.backgroundColor = '#ccc';
                 }
                 
                 document.getElementById('modal-material').innerText = item.material || '-';
                 document.getElementById('modal-size').innerText = item.size || '-';
-                document.getElementById('modal-fit').innerText = 'Regular';  // Not in DB yet
-                document.getElementById('modal-occasion').innerText = 'Casual';  // Not in DB yet
+                document.getElementById('modal-fit').innerText = 'Regular';
+                document.getElementById('modal-occasion').innerText = 'Casual';
                 
             } catch (error) {
                 showError('Failed to load item details');
             }
         }
+        
+        // Inline edit: product name in modal
+        function initModalNameEdit() {
+            const display = document.getElementById('modal-name-display');
+            const textEl = document.getElementById('modal-name-text');
+            const input = document.getElementById('modal-name-input');
+            
+            display.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const newName = input.value.trim() || currentModalDefaultName;
+                textEl.textContent = newName;
+                input.value = newName;
+                display.style.display = 'none';
+                input.style.display = 'block';
+                input.focus();
+                input.select();
+            });
+            
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); saveModalName(); }
+                else if (e.key === 'Escape') { e.preventDefault(); cancelModalNameEdit(); }
+            });
+            input.addEventListener('blur', cancelModalNameEdit);
+            
+            function saveModalName() {
+                const newName = input.value.trim() || currentModalDefaultName;
+                if (currentModalItemId != null) {
+                    localStorage.setItem('wardrobe_item_name_' + currentModalItemId, newName);
+                    textEl.textContent = newName;
+                    const card = document.querySelector('[data-item-id="' + currentModalItemId + '"] .card-item-name');
+                    if (card) card.textContent = newName;
+                    showSuccess('Name updated');
+                }
+                input.style.display = 'none';
+                display.style.display = 'flex';
+            }
+            function cancelModalNameEdit() {
+                input.value = textEl.textContent;
+                input.style.display = 'none';
+                display.style.display = 'flex';
+            }
+        }
+        window.addEventListener('DOMContentLoaded', initModalNameEdit);
 
         // Delete item with confirmation
         async function confirmDelete(itemId) {

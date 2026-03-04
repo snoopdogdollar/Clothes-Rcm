@@ -19,6 +19,11 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
     
+    # Admin login (Option A: single admin, credentials in .env)
+    ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin')
+    ADMIN_TOKEN = os.getenv('ADMIN_TOKEN', '')  # Set in .env; returned on successful login
+    
     # Paths
     BASE_DIR = Path(__file__).resolve().parent
     UPLOAD_FOLDER = Path(os.getenv('UPLOAD_FOLDER', './data/uploads'))

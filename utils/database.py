@@ -51,7 +51,7 @@ def init_db():
     
     Call this once when starting the application.
     """
-    from models.item import ClothingItem, ItemColor  # Import models
+    from models.item import ClothingItem, ItemColor, Outfit  # Import models
     Base.metadata.create_all(bind=engine)
     print("✓ Database tables initialized")
 

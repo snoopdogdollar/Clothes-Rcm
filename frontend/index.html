@@ -9,6 +9,10 @@
     <script src="js/api.js"></script>
     
     <script>
+        // Require login for app pages
+        if (!isLoggedIn()) {
+            window.location.replace('login.html');
+        }
         function openDetails(itemData) {
             const modal = document.getElementById('itemModal');
             modal.style.display = 'flex';
@@ -98,31 +102,31 @@
                 <div>
                     <label class="filter-label">Category</label>
                     <select id="categoryFilter" class="filter-select" onchange="applyFilters()">
-                        <option>All Categories</option>
-                        <optgroup label="Tops">
-                            <option>T-Shirts</option>
-                            <option>Shirts / Blouses</option>
-                            <option>Hoodies / Sweaters</option>
-                            <option>Jackets / Coats</option>
-                            <option>Tank Tops</option>
-                        </optgroup>
-                        <optgroup label="Bottoms">
-                            <option>Jeans</option>
-                            <option>Trousers / Chinos</option>
-                            <option>Shorts</option>
-                            <option>Skirts</option>
-                        </optgroup>
-                        <optgroup label="Footwear">
-                            <option>Sneakers</option>
-                            <option>Boots</option>
-                            <option>Formal Shoes</option>
-                            <option>Sandals</option>
-                        </optgroup>
-                        <optgroup label="Others">
-                            <option>Dresses</option>
-                            <option>Activewear</option>
-                            <option>Accessories</option>
-                        </optgroup>
+                        <option value="All Categories">All Categories</option>
+                        <option disabled>───────────</option>
+                        <option value="TOPS" style="font-weight:900">TOPS</option>
+                        <option value="T-Shirts">&nbsp;&nbsp;&nbsp;&nbsp;T-Shirts</option>
+                        <option value="Shirts / Blouses">&nbsp;&nbsp;&nbsp;&nbsp;Shirts / Blouses</option>
+                        <option value="Hoodies / Sweaters">&nbsp;&nbsp;&nbsp;&nbsp;Hoodies / Sweaters</option>
+                        <option value="Jackets / Coats">&nbsp;&nbsp;&nbsp;&nbsp;Jackets / Coats</option>
+                        <option value="Tank Tops">&nbsp;&nbsp;&nbsp;&nbsp;Tank Tops</option>
+                        <option disabled>───────────</option>
+                        <option value="BOTTOMS" style="font-weight:900">BOTTOMS</option>
+                        <option value="Jeans">&nbsp;&nbsp;&nbsp;&nbsp;Jeans</option>
+                        <option value="Trousers / Chinos">&nbsp;&nbsp;&nbsp;&nbsp;Trousers / Chinos</option>
+                        <option value="Shorts">&nbsp;&nbsp;&nbsp;&nbsp;Shorts</option>
+                        <option value="Skirts">&nbsp;&nbsp;&nbsp;&nbsp;Skirts</option>
+                        <option disabled>───────────</option>
+                        <option value="FOOTWEAR" style="font-weight:900">FOOTWEAR</option>
+                        <option value="Sneakers">&nbsp;&nbsp;&nbsp;&nbsp;Sneakers</option>
+                        <option value="Boots">&nbsp;&nbsp;&nbsp;&nbsp;Boots</option>
+                        <option value="Formal Shoes">&nbsp;&nbsp;&nbsp;&nbsp;Formal Shoes</option>
+                        <option value="Sandals">&nbsp;&nbsp;&nbsp;&nbsp;Sandals</option>
+                        <option disabled>───────────</option>
+                        <option value="OTHERS" style="font-weight:900">OTHERS</option>
+                        <option value="Dresses">&nbsp;&nbsp;&nbsp;&nbsp;Dresses</option>
+                        <option value="Activewear">&nbsp;&nbsp;&nbsp;&nbsp;Activewear</option>
+                        <option value="Accessories">&nbsp;&nbsp;&nbsp;&nbsp;Accessories</option>
                     </select>
                 </div>
 
@@ -226,13 +230,75 @@
 
     <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#e5e5e5]/90 backdrop-blur px-10 py-4 rounded-full shadow-xl border border-white/20 flex space-x-12">
         <a href="dressing-room.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Dressing Room</a>
+        <a href="outfits.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Outfits</a>
         <a href="wardrobe.html" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Wardrobe</a>
         <a href="index.html" class="text-[10px] font-bold uppercase border-b-2 border-black">Home</a>
+        <a href="#" onclick="logout(); return false;" class="text-[10px] font-bold uppercase opacity-50 hover:opacity-100 transition">Logout</a>
     </nav>
 
     <script>
         let currentFilters = {};
         let searchTimeout = null;
+
+        // Map UI category labels to actual model categories (from models/class_names.json)
+        // This allows pretty names like "T-SHIRTS" while the model uses "Tshirts", etc.
+        const CATEGORY_MAP = {
+            // Tops
+            "T-Shirts": ["Tshirts"],
+            "Shirts / Blouses": ["Shirts", "Tops"],
+            "Hoodies / Sweaters": ["Sweatshirts"],
+            "Jackets / Coats": ["Jackets"],
+            "Tank Tops": ["Tops"],
+            // Bottoms
+            "Jeans": ["Jeans"],
+            "Trousers / Chinos": ["Trousers"],
+            "Shorts": ["Shorts"],
+            "Skirts": [], // No direct category in current class_names.json
+            // Footwear
+            "Sneakers": ["Sports Shoes", "Casual Shoes"],
+            "Boots": [], // Not present in current class_names.json
+            "Formal Shoes": ["Formal Shoes"],
+            "Sandals": ["Sandals", "Flip Flops"],
+            // Others
+            "Dresses": ["Dresses"],
+            "Activewear": ["Track Pants", "Tshirts", "Shorts"],
+            "Accessories": [
+                "Backpacks",
+                "Belts",
+                "Caps",
+                "Earrings",
+                "Handbags",
+                "Sunglasses",
+                "Wallets",
+                "Watches",
+                "Socks"
+            ]
+        };
+
+        // High-level groups (not directly selectable in the <select>, but we keep this
+        // in case you add group options later)
+        const CATEGORY_GROUPS = {
+            TOPS: ["Tshirts", "Shirts", "Sweatshirts", "Tops", "Jackets"],
+            BOTTOMS: ["Jeans", "Trousers", "Shorts", "Track Pants"],
+            FOOTWEAR: [
+                "Casual Shoes",
+                "Sports Shoes",
+                "Formal Shoes",
+                "Sandals",
+                "Heels",
+                "Flip Flops"
+            ]
+        };
+
+        // Map high-level group options directly into CATEGORY_MAP as well
+        CATEGORY_MAP["TOPS"] = CATEGORY_GROUPS.TOPS;
+        CATEGORY_MAP["BOTTOMS"] = CATEGORY_GROUPS.BOTTOMS;
+        CATEGORY_MAP["FOOTWEAR"] = CATEGORY_GROUPS.FOOTWEAR;
+        CATEGORY_MAP["OTHERS"] = [
+            "Dresses", "Backpacks", "Belts", "Bra", "Briefs", "Caps",
+            "Earrings", "Handbags", "Kurta Sets", "Kurtas", "Sarees",
+            "Socks", "Sunglasses", "Wallets", "Watches"
+        ];
 
         // Load items when page loads
         window.addEventListener('DOMContentLoaded', () => {
@@ -414,15 +480,29 @@
             }
         }
 
-        // Apply filters
+        // Apply filters (with UI -> model category mapping)
         function applyFilters() {
-            const category = document.getElementById('categoryFilter').value;
+            const uiCategory = document.getElementById('categoryFilter').value;
             const color = document.getElementById('colorFilter').value;
             const material = document.getElementById('materialFilter').value;
             
             currentFilters = {};
-            
-            if (category !== 'All Categories') currentFilters.category = category;
+
+            // Map the pretty UI label to one or more real categories
+            if (uiCategory && uiCategory !== 'All Categories') {
+                const mapped = CATEGORY_MAP[uiCategory];
+                if (mapped && mapped.length === 1) {
+                    // Single category -> use exact match
+                    currentFilters.category = mapped[0];
+                } else if (mapped && mapped.length > 1) {
+                    // Multiple categories -> use category_group (handled in API)
+                    currentFilters.category_group = mapped.join(',');
+                } else {
+                    // Fallback: send the UI value directly in case it already matches
+                    currentFilters.category = uiCategory;
+                }
+            }
+
             if (color !== 'All Colors') currentFilters.color = color;
             if (material !== 'All Materials') currentFilters.material = material;
             

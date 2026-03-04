@@ -1,5 +1,5 @@
 """
-SQLAlchemy ORM models for clothing items and colors
+SQLAlchemy ORM models for clothing items, colors, and outfits
 """
 
 from sqlalchemy import Column, Integer, String, Text, DECIMAL, DateTime, ForeignKey
@@ -109,4 +109,33 @@ class ItemColor(Base):
             'color_hex': self.color_hex,
             'color_rgb': self.color_rgb,
             'percentage': float(self.percentage) if self.percentage else None
+        }
+
+
+class Outfit(Base):
+    """Saved outfit combinations (top + bottom + shoes)"""
+    __tablename__ = 'outfits'
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=True)
+    top_id = Column(Integer, ForeignKey('clothing_items.id', ondelete='SET NULL'), nullable=True)
+    bottom_id = Column(Integer, ForeignKey('clothing_items.id', ondelete='SET NULL'), nullable=True)
+    shoes_id = Column(Integer, ForeignKey('clothing_items.id', ondelete='SET NULL'), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+
+    top = relationship("ClothingItem", foreign_keys=[top_id])
+    bottom = relationship("ClothingItem", foreign_keys=[bottom_id])
+    shoes = relationship("ClothingItem", foreign_keys=[shoes_id])
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'top_id': self.top_id,
+            'bottom_id': self.bottom_id,
+            'shoes_id': self.shoes_id,
+            'top': self.top.to_dict(include_colors=False) if self.top else None,
+            'bottom': self.bottom.to_dict(include_colors=False) if self.bottom else None,
+            'shoes': self.shoes.to_dict(include_colors=False) if self.shoes else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }

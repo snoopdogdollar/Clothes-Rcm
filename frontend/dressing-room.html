@@ -7,6 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/api.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <script>
+        if (!isLoggedIn()) { window.location.replace('login.html'); }
+    </script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #1a1a1a; }
         .glass-card { background: #D1D1D1; border-radius: 24px; }
@@ -24,11 +27,54 @@
             background-size: cover;
             background-position: center;
         }
-        .clothing-box:hover { background-color: #bcbcbc; }
+        .clothing-box:hover { background-color: #bcbcbc; cursor: pointer; }
         .action-btn { transition: transform 0.2s; }
         .action-btn:active { transform: scale(0.9); }
         .wardrobe-item { cursor: pointer; transition: ring 0.2s; }
         .wardrobe-item:hover { ring: 2px solid black; }
+        
+        .picker-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center; align-items: center;
+            z-index: 1000; padding: 20px;
+        }
+        .picker-content {
+            background: #D1D1D1; width: 100%; max-width: 800px; max-height: 85vh;
+            border-radius: 32px; position: relative;
+            animation: pickerFadeIn 0.3s ease-out;
+            display: flex; flex-direction: column;
+        }
+        @keyframes pickerFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .picker-close {
+            position: absolute; top: 16px; right: 16px;
+            width: 36px; height: 36px; background: #1a1a1a;
+            color: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 10;
+        }
+        .picker-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+            overflow-y: auto; padding: 0 28px 28px 28px;
+        }
+        .picker-item {
+            aspect-ratio: 1; background: #e5e5e5; border-radius: 16px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s; overflow: hidden; padding: 10px;
+            border: 2px solid transparent;
+            min-height: 0;
+        }
+        .picker-item:hover {
+            background: #d0d0d0; border-color: #1a1a1a; transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .picker-item img { width: 100%; flex: 1; min-height: 0; object-fit: contain; }
+        .picker-item span { font-size: 10px; font-weight: 700; text-transform: uppercase; margin-top: 6px; text-align: center; line-height: 1.2; flex-shrink: 0; }
     </style>
 </head>
 <body class="min-h-screen p-6 md:p-12 flex flex-col">
@@ -59,13 +105,13 @@
                 </div>
 
                 <div class="md:col-span-6 flex flex-col items-center space-y-4">
-                    <div id="box-top" class="clothing-box w-full h-48 shadow-inner uppercase tracking-widest">
+                    <div id="box-top" class="clothing-box w-full h-48 shadow-inner uppercase tracking-widest" onclick="openPicker('top')">
                         Top
                     </div>
-                    <div id="box-bottom" class="clothing-box w-full h-64 shadow-inner uppercase tracking-widest">
+                    <div id="box-bottom" class="clothing-box w-full h-64 shadow-inner uppercase tracking-widest" onclick="openPicker('bottom')">
                         Bottom
                     </div>
-                    <div id="box-shoes" class="clothing-box w-full h-32 shadow-inner uppercase tracking-widest">
+                    <div id="box-shoes" class="clothing-box w-full h-32 shadow-inner uppercase tracking-widest" onclick="openPicker('shoes')">
                         Shoes
                     </div>
 
@@ -95,23 +141,50 @@
         </div>
     </main>
 
+    <!-- Item Picker Modal -->
+    <div id="pickerOverlay" class="picker-overlay" onclick="if(event.target.id==='pickerOverlay') closePicker()">
+        <div class="picker-content" onclick="event.stopPropagation()">
+            <div class="picker-close" onclick="closePicker()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+            </div>
+            <div class="p-6 pb-3">
+                <h3 id="pickerTitle" class="text-xl font-black uppercase tracking-tight">Choose a Top</h3>
+                <p id="pickerCount" class="text-[10px] font-bold uppercase text-gray-500 mt-1">0 items</p>
+            </div>
+            <div id="pickerGrid" class="picker-grid">
+                <!-- Items will be injected here -->
+            </div>
+            <div id="pickerEmpty" style="display:none" class="text-center py-12 text-gray-400 text-xs uppercase font-bold">
+                No items found for this category
+            </div>
+        </div>
+    </div>
+
     <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#e5e5e5]/90 backdrop-blur px-10 py-4 rounded-full shadow-xl border border-white/20 flex space-x-12">
         <a href="dressing-room.html" class="font-bold border-b-2 border-black">Dressing Room</a>
+        <a href="outfits.html" class="text-gray-500 hover:text-black transition">Outfits</a>
+        <a href="wardrobe.html" class="text-gray-500 hover:text-black transition">Wardrobe</a>
         <a href="index.html" class="text-gray-500 hover:text-black transition">Home</a>
+        <a href="#" onclick="logout(); return false;" class="text-gray-500 hover:text-black transition">Logout</a>
     </nav>
 
     <script>
         let allItems = [];
         let currentOutfit = { top: null, bottom: null, shoes: null };
+        let currentPickerSlot = null;
         
-        // Category mappings for outfit slots
-        const topCategories = ['Tshirts', 'Shirts', 'Tops', 'Sweatshirt', 'Sweaters', 'Jackets', 'Blazers'];
-        const bottomCategories = ['Jeans', 'Trousers', 'Shorts', 'Track Pants', 'Skirts', 'Leggings'];
-        const shoesCategories = ['Casual Shoes', 'Sports Shoes', 'Formal Shoes', 'Sandals', 'Flip Flops', 'Flats', 'Heels'];
+        // Category mappings for outfit slots (matches class_names.json)
+        const slotCategories = {
+            top: ['Tshirts', 'Shirts', 'Tops', 'Sweatshirts', 'Jackets'],
+            bottom: ['Jeans', 'Trousers', 'Shorts', 'Track Pants'],
+            shoes: ['Casual Shoes', 'Sports Shoes', 'Formal Shoes', 'Sandals', 'Flip Flops', 'Heels']
+        };
+        
+        const slotLabels = { top: 'Top', bottom: 'Bottom', shoes: 'Shoes' };
 
-        // Load items when page loads
-        window.addEventListener('DOMContentLoaded', () => {
-            loadWardrobeItems();
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadWardrobeItems();
+            loadOutfitFromURL();
         });
 
         // Load items from API
@@ -119,16 +192,11 @@
             try {
                 const data = await getItems({ limit: 50 });
                 allItems = data.items;
-                
-                // Display first 6 items in sidebar
                 displayWardrobePreview(allItems.slice(0, 6));
-                
             } catch (error) {
                 console.error('Failed to load items:', error);
                 document.getElementById('wardrobe-grid').innerHTML = `
-                    <div class="col-span-2 text-center py-4 text-xs text-red-500 uppercase">
-                        Failed to load
-                    </div>
+                    <div class="col-span-2 text-center py-4 text-xs text-red-500 uppercase">Failed to load</div>
                 `;
             }
         }
@@ -137,133 +205,158 @@
         function displayWardrobePreview(items) {
             const grid = document.getElementById('wardrobe-grid');
             grid.innerHTML = '';
-            
             if (items.length === 0) {
-                grid.innerHTML = `
-                    <div class="col-span-2 text-center py-4 text-xs text-gray-500 uppercase">
-                        No items
-                    </div>
-                `;
+                grid.innerHTML = `<div class="col-span-2 text-center py-4 text-xs text-gray-500 uppercase">No items</div>`;
                 return;
             }
-            
             items.forEach(item => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'aspect-square bg-white/50 rounded-lg wardrobe-item overflow-hidden cursor-pointer hover:ring-2 hover:ring-black transition';
                 itemDiv.title = `${item.primary_color} ${item.category}`;
                 itemDiv.onclick = () => selectItemForOutfit(item);
-                
-                itemDiv.innerHTML = `
-                    <img src="${getItemImageUrl(item.id, 'segmented')}" 
-                         class="w-full h-full object-contain p-1" 
-                         alt="${item.category}">
-                `;
-                
+                itemDiv.innerHTML = `<img src="${getItemImageUrl(item.id, 'segmented')}" class="w-full h-full object-contain p-1" alt="${item.category}">`;
                 grid.appendChild(itemDiv);
             });
         }
 
-        // Select item for outfit based on category
+        // Select item for outfit based on category (from sidebar click)
         function selectItemForOutfit(item) {
             const category = item.category;
-            
-            if (topCategories.includes(category)) {
+            if (slotCategories.top.includes(category)) {
                 setOutfitSlot('top', item);
-            } else if (bottomCategories.includes(category)) {
+            } else if (slotCategories.bottom.includes(category)) {
                 setOutfitSlot('bottom', item);
-            } else if (shoesCategories.includes(category)) {
+            } else if (slotCategories.shoes.includes(category)) {
                 setOutfitSlot('shoes', item);
             } else {
                 showError('Cannot determine slot for this item category');
             }
         }
 
-        // Set item to outfit slot
+        // ==================== Item Picker (click on box) ====================
+
+        function openPicker(slot) {
+            currentPickerSlot = slot;
+            const categories = slotCategories[slot] || [];
+            const filtered = allItems.filter(item => categories.includes(item.category));
+            
+            document.getElementById('pickerTitle').textContent = `Choose a ${slotLabels[slot]}`;
+            document.getElementById('pickerCount').textContent = `${filtered.length} item${filtered.length !== 1 ? 's' : ''}`;
+            
+            const grid = document.getElementById('pickerGrid');
+            const empty = document.getElementById('pickerEmpty');
+            
+            if (filtered.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+            } else {
+                grid.style.display = 'grid';
+                empty.style.display = 'none';
+                grid.innerHTML = '';
+                
+                filtered.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'picker-item';
+                    
+                    // Highlight if already selected for this slot
+                    if (currentOutfit[slot] && currentOutfit[slot].id === item.id) {
+                        div.style.borderColor = '#22c55e';
+                        div.style.background = '#dcfce7';
+                    }
+                    
+                    div.onclick = () => {
+                        setOutfitSlot(slot, item);
+                        closePicker();
+                    };
+                    div.innerHTML = `
+                        <img src="${getItemImageUrl(item.id, 'segmented')}" alt="${item.category}">
+                        <span>${item.primary_color || ''} ${item.category || ''}</span>
+                    `;
+                    grid.appendChild(div);
+                });
+            }
+            
+            document.getElementById('pickerOverlay').style.display = 'flex';
+        }
+        
+        function closePicker() {
+            document.getElementById('pickerOverlay').style.display = 'none';
+            currentPickerSlot = null;
+        }
+
+        // ==================== Outfit Slots ====================
+
         function setOutfitSlot(slot, item) {
             currentOutfit[slot] = item;
-            
             const box = document.getElementById(`box-${slot}`);
             box.style.backgroundImage = `url('${getItemImageUrl(item.id, 'segmented')}')`;
             box.style.backgroundSize = 'contain';
             box.style.backgroundRepeat = 'no-repeat';
             box.style.backgroundPosition = 'center';
             box.innerText = '';
-            
-            showSuccess(`Added ${item.primary_color} ${item.category} to ${slot}`);
+            showSuccess(`Added ${item.primary_color} ${item.category} to ${slotLabels[slot]}`);
         }
 
-        // Randomize outfit with actual items
         function randomizeOutfit() {
-            const tops = allItems.filter(item => topCategories.includes(item.category));
-            const bottoms = allItems.filter(item => bottomCategories.includes(item.category));
-            const shoes = allItems.filter(item => shoesCategories.includes(item.category));
-            
-            if (tops.length > 0) {
-                const randomTop = tops[Math.floor(Math.random() * tops.length)];
-                setOutfitSlot('top', randomTop);
-            }
-            
-            if (bottoms.length > 0) {
-                const randomBottom = bottoms[Math.floor(Math.random() * bottoms.length)];
-                setOutfitSlot('bottom', randomBottom);
-            }
-            
-            if (shoes.length > 0) {
-                const randomShoes = shoes[Math.floor(Math.random() * shoes.length)];
-                setOutfitSlot('shoes', randomShoes);
-            }
-            
-            if (tops.length === 0 && bottoms.length === 0 && shoes.length === 0) {
-                showError('Not enough items in wardrobe to randomize');
-            }
+            ['top', 'bottom', 'shoes'].forEach(slot => {
+                const filtered = allItems.filter(item => slotCategories[slot].includes(item.category));
+                if (filtered.length > 0) {
+                    setOutfitSlot(slot, filtered[Math.floor(Math.random() * filtered.length)]);
+                }
+            });
+            if (allItems.length === 0) showError('Not enough items in wardrobe to randomize');
         }
 
-        // Save outfit (for future feature - currently just shows info)
-        function saveOutfit() {
+        async function saveOutfit() {
             if (!currentOutfit.top && !currentOutfit.bottom && !currentOutfit.shoes) {
                 showError('Please add at least one item to save outfit');
                 return;
             }
-            
-            const outfitData = {
-                top: currentOutfit.top?.id || null,
-                bottom: currentOutfit.bottom?.id || null,
-                shoes: currentOutfit.shoes?.id || null,
-                timestamp: new Date().toISOString()
-            };
-            
-            console.log('Outfit to save:', outfitData);
-            
-            // For now, just alert (future: save to outfits table)
-            showSuccess('Outfit combination saved! (Feature coming soon)');
+            try {
+                await saveOutfitToAPI({
+                    top_id: currentOutfit.top?.id || null,
+                    bottom_id: currentOutfit.bottom?.id || null,
+                    shoes_id: currentOutfit.shoes?.id || null,
+                });
+                showSuccess('Outfit saved! View it in Outfits page.');
+            } catch (err) {
+                showError('Failed to save outfit: ' + err.message);
+            }
         }
 
-        // Confirm selection
         function confirmSelection() {
             if (!currentOutfit.top && !currentOutfit.bottom && !currentOutfit.shoes) {
                 showError('No items selected');
                 return;
             }
-            
             const items = [];
             if (currentOutfit.top) items.push(`${currentOutfit.top.primary_color} ${currentOutfit.top.category}`);
             if (currentOutfit.bottom) items.push(`${currentOutfit.bottom.primary_color} ${currentOutfit.bottom.category}`);
             if (currentOutfit.shoes) items.push(`${currentOutfit.shoes.primary_color} ${currentOutfit.shoes.category}`);
-            
             showSuccess(`Confirmed: ${items.join(' + ')}`);
         }
 
-        // Reset outfit
+        function loadOutfitFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            const topId = params.get('top');
+            const bottomId = params.get('bottom');
+            const shoesId = params.get('shoes');
+            if (!topId && !bottomId && !shoesId) return;
+            [['top', topId], ['bottom', bottomId], ['shoes', shoesId]].forEach(([slot, id]) => {
+                if (!id) return;
+                const item = allItems.find(i => i.id === parseInt(id));
+                if (item) setOutfitSlot(slot, item);
+            });
+        }
+
         function resetSelection() {
             currentOutfit = { top: null, bottom: null, shoes: null };
-            
             ['top', 'bottom', 'shoes'].forEach(slot => {
                 const box = document.getElementById(`box-${slot}`);
                 box.style.backgroundImage = '';
                 box.style.backgroundColor = '#e5e5e5';
-                box.innerText = slot.charAt(0).toUpperCase() + slot.slice(1);
+                box.innerText = slotLabels[slot];
             });
-            
             showSuccess('Outfit cleared');
         }
     </script>

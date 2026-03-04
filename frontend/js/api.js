@@ -5,6 +5,47 @@
 
 const API_URL = 'http://localhost:8000';
 
+// ==================== Auth (Option A: single admin) ====================
+const AUTH_TOKEN_KEY = 'wardrobe_token';
+
+function getToken() {
+    return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+function setToken(token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+function removeToken() {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+function isLoggedIn() {
+    return !!getToken();
+}
+
+function logout() {
+    removeToken();
+    window.location.href = 'login.html';
+}
+
+/**
+ * Login with username and password. Returns { success, token }.
+ * Store token with setToken() and use in requests if you add protected endpoints.
+ */
+async function login(username, password) {
+    const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.detail || 'Login failed');
+    }
+    return data;
+}
+
 // ==================== Items API ====================
 
 /**
@@ -35,6 +76,9 @@ async function getItems(filters = {}) {
     
     if (filters.category && filters.category !== 'All Categories') {
         params.append('category', filters.category);
+    }
+    if (filters.category_group) {
+        params.append('category_group', filters.category_group);
     }
     if (filters.color && filters.color !== 'All Colors') {
         params.append('color', filters.color);
@@ -127,6 +171,52 @@ async function getStatistics() {
         throw new Error('Failed to fetch statistics');
     }
     
+    return await response.json();
+}
+
+// ==================== Outfits API ====================
+
+async function saveOutfitToAPI(data) {
+    const response = await fetch(`${API_URL}/api/outfits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to save outfit');
+    }
+    return await response.json();
+}
+
+async function getOutfits() {
+    const response = await fetch(`${API_URL}/api/outfits`);
+    if (!response.ok) throw new Error('Failed to fetch outfits');
+    return await response.json();
+}
+
+async function getOutfit(outfitId) {
+    const response = await fetch(`${API_URL}/api/outfits/${outfitId}`);
+    if (!response.ok) throw new Error('Outfit not found');
+    return await response.json();
+}
+
+async function updateOutfitAPI(outfitId, data) {
+    const response = await fetch(`${API_URL}/api/outfits/${outfitId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update outfit');
+    }
+    return await response.json();
+}
+
+async function deleteOutfitAPI(outfitId) {
+    const response = await fetch(`${API_URL}/api/outfits/${outfitId}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete outfit');
     return await response.json();
 }
 
