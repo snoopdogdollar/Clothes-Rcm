@@ -51,15 +51,13 @@ class ClothingClassifier:
         self.model = None
         self.num_classes = len(self.class_names)
         
-        # CRITICAL: Preprocessing must match Kaggle training
+        # CRITICAL: Preprocessing must match training (full-color RGB, ImageFolder dataset)
         # - Resize to 224x224 (ResNet18 input size)
-        # - Convert to 3-channel grayscale (RGB with identical channels)
-        # - ToTensor() converts PIL [0,255] -> Tensor [0,1] automatically
-        # - NO normalization (matches Kaggle training setup)
+        # - Keep RGB (no Grayscale) — model was trained on color images
+        # - ToTensor() converts PIL [0,255] -> Tensor [0,1]
         self.transform = transforms.Compose([
-            transforms.Resize((224, 224)),                # Force 224x224 (not just shortest side)
-            transforms.Grayscale(num_output_channels=3),  # 3-channel grayscale
-            transforms.ToTensor()                         # [0,1] normalization only
+            transforms.Resize((224, 224)),
+            transforms.ToTensor()
         ])
         
         # Load the model
@@ -129,7 +127,9 @@ class ClothingClassifier:
         Returns:
             tuple: (predicted_class_name, confidence_score, all_predictions)
         """
-        # Preprocess image - converts to 3-channel grayscale, resizes to 224x224, normalizes to [0,1]
+        # Ensure RGB (model was trained on color); then resize and convert to tensor
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
         input_tensor = self.transform(image).unsqueeze(0).to(self.device)
         
         # Safety check: ensure correct shape (batch_size, channels, height, width)

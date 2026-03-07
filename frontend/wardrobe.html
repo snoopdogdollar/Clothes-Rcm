@@ -106,27 +106,27 @@
                         <option disabled>───────────</option>
                         <option value="TOPS" style="font-weight:900">TOPS</option>
                         <option value="T-Shirts">&nbsp;&nbsp;&nbsp;&nbsp;T-Shirts</option>
-                        <option value="Shirts / Blouses">&nbsp;&nbsp;&nbsp;&nbsp;Shirts / Blouses</option>
+                        <option value="Shirts">&nbsp;&nbsp;&nbsp;&nbsp;Shirts</option>
+                        <option value="Polo">&nbsp;&nbsp;&nbsp;&nbsp;Polo</option>
+                        <option value="Long Sleeve">&nbsp;&nbsp;&nbsp;&nbsp;Long Sleeve</option>
                         <option value="Hoodies / Sweaters">&nbsp;&nbsp;&nbsp;&nbsp;Hoodies / Sweaters</option>
-                        <option value="Jackets / Coats">&nbsp;&nbsp;&nbsp;&nbsp;Jackets / Coats</option>
-                        <option value="Tank Tops">&nbsp;&nbsp;&nbsp;&nbsp;Tank Tops</option>
+                        <option value="Jackets">&nbsp;&nbsp;&nbsp;&nbsp;Jackets</option>
                         <option disabled>───────────</option>
                         <option value="BOTTOMS" style="font-weight:900">BOTTOMS</option>
                         <option value="Jeans">&nbsp;&nbsp;&nbsp;&nbsp;Jeans</option>
-                        <option value="Trousers / Chinos">&nbsp;&nbsp;&nbsp;&nbsp;Trousers / Chinos</option>
+                        <option value="Trousers">&nbsp;&nbsp;&nbsp;&nbsp;Trousers</option>
                         <option value="Shorts">&nbsp;&nbsp;&nbsp;&nbsp;Shorts</option>
-                        <option value="Skirts">&nbsp;&nbsp;&nbsp;&nbsp;Skirts</option>
+                        <option value="Jorts">&nbsp;&nbsp;&nbsp;&nbsp;Jorts</option>
+                        <option value="Cargo">&nbsp;&nbsp;&nbsp;&nbsp;Cargo</option>
                         <option disabled>───────────</option>
                         <option value="FOOTWEAR" style="font-weight:900">FOOTWEAR</option>
-                        <option value="Sneakers">&nbsp;&nbsp;&nbsp;&nbsp;Sneakers</option>
-                        <option value="Boots">&nbsp;&nbsp;&nbsp;&nbsp;Boots</option>
+                        <option value="Casual Shoes">&nbsp;&nbsp;&nbsp;&nbsp;Casual Shoes</option>
                         <option value="Formal Shoes">&nbsp;&nbsp;&nbsp;&nbsp;Formal Shoes</option>
-                        <option value="Sandals">&nbsp;&nbsp;&nbsp;&nbsp;Sandals</option>
+                        <option value="Sport Shoes">&nbsp;&nbsp;&nbsp;&nbsp;Sport Shoes</option>
                         <option disabled>───────────</option>
-                        <option value="OTHERS" style="font-weight:900">OTHERS</option>
-                        <option value="Dresses">&nbsp;&nbsp;&nbsp;&nbsp;Dresses</option>
-                        <option value="Activewear">&nbsp;&nbsp;&nbsp;&nbsp;Activewear</option>
-                        <option value="Accessories">&nbsp;&nbsp;&nbsp;&nbsp;Accessories</option>
+                        <option value="ACCESSORIES" style="font-weight:900">ACCESSORIES</option>
+                        <option value="Cap">&nbsp;&nbsp;&nbsp;&nbsp;Cap</option>
+                        <option value="Watch">&nbsp;&nbsp;&nbsp;&nbsp;Watch</option>
                     </select>
                 </div>
 
@@ -240,39 +240,37 @@
         let currentFilters = {};
         let searchTimeout = null;
 
+        // 19-class model: cap, cargo, casual_shoe, denim_jacket, formal_shoe, hoodie, jacket, jeans, jorts, leather_jacket, long_sleeve, polo, shirt, shorts, sport shoes, sweater, t-shirt, trousers, watch
         const CATEGORY_MAP = {
-            "T-Shirts": ["Tshirts"],
-            "Shirts / Blouses": ["Shirts", "Tops"],
-            "Hoodies / Sweaters": ["Sweatshirts"],
-            "Jackets / Coats": ["Jackets"],
-            "Tank Tops": ["Tops"],
-            "Jeans": ["Jeans"],
-            "Trousers / Chinos": ["Trousers"],
-            "Shorts": ["Shorts"],
-            "Skirts": [],
-            "Sneakers": ["Sports Shoes", "Casual Shoes"],
-            "Boots": [],
-            "Formal Shoes": ["Formal Shoes"],
-            "Sandals": ["Sandals", "Flip Flops"],
-            "Dresses": ["Dresses"],
-            "Activewear": ["Track Pants", "Tshirts", "Shorts"],
-            "Accessories": ["Backpacks","Belts","Caps","Earrings","Handbags","Sunglasses","Wallets","Watches","Socks"]
+            "T-Shirts": ["t-shirt"],
+            "Shirts": ["shirt"],
+            "Polo": ["polo"],
+            "Long Sleeve": ["long_sleeve"],
+            "Hoodies / Sweaters": ["hoodie", "sweater"],
+            "Jackets": ["jacket", "denim_jacket", "leather_jacket"],
+            "Jeans": ["jeans"],
+            "Trousers": ["trousers"],
+            "Shorts": ["shorts"],
+            "Jorts": ["jorts"],
+            "Cargo": ["cargo"],
+            "Casual Shoes": ["casual_shoe"],
+            "Formal Shoes": ["formal_shoe"],
+            "Sport Shoes": ["sport shoes"],
+            "Cap": ["cap"],
+            "Watch": ["watch"]
         };
 
         const CATEGORY_GROUPS = {
-            TOPS: ["Tshirts", "Shirts", "Sweatshirts", "Tops", "Jackets"],
-            BOTTOMS: ["Jeans", "Trousers", "Shorts", "Track Pants"],
-            FOOTWEAR: ["Casual Shoes", "Sports Shoes", "Formal Shoes", "Sandals", "Heels", "Flip Flops"]
+            TOPS: ["t-shirt", "shirt", "polo", "long_sleeve", "hoodie", "sweater", "jacket", "denim_jacket", "leather_jacket"],
+            BOTTOMS: ["jeans", "trousers", "shorts", "jorts", "cargo"],
+            FOOTWEAR: ["casual_shoe", "formal_shoe", "sport shoes"],
+            ACCESSORIES: ["cap", "watch"]
         };
 
         CATEGORY_MAP["TOPS"] = CATEGORY_GROUPS.TOPS;
         CATEGORY_MAP["BOTTOMS"] = CATEGORY_GROUPS.BOTTOMS;
         CATEGORY_MAP["FOOTWEAR"] = CATEGORY_GROUPS.FOOTWEAR;
-        CATEGORY_MAP["OTHERS"] = [
-            "Dresses","Backpacks","Belts","Bra","Briefs","Caps",
-            "Earrings","Handbags","Kurta Sets","Kurtas","Sarees",
-            "Socks","Sunglasses","Wallets","Watches"
-        ];
+        CATEGORY_MAP["ACCESSORIES"] = CATEGORY_GROUPS.ACCESSORIES;
 
         // Load items when page loads
         window.addEventListener('DOMContentLoaded', () => {

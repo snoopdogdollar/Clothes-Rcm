@@ -173,11 +173,11 @@
         let currentOutfit = { top: null, bottom: null, shoes: null };
         let currentPickerSlot = null;
         
-        // Category mappings for outfit slots (matches class_names.json)
+        // Category mappings for outfit slots (19-class model: class_names.json)
         const slotCategories = {
-            top: ['Tshirts', 'Shirts', 'Tops', 'Sweatshirts', 'Jackets'],
-            bottom: ['Jeans', 'Trousers', 'Shorts', 'Track Pants'],
-            shoes: ['Casual Shoes', 'Sports Shoes', 'Formal Shoes', 'Sandals', 'Flip Flops', 'Heels']
+            top: ['t-shirt', 'shirt', 'polo', 'long_sleeve', 'hoodie', 'sweater', 'jacket', 'denim_jacket', 'leather_jacket'],
+            bottom: ['jeans', 'trousers', 'shorts', 'jorts', 'cargo'],
+            shoes: ['casual_shoe', 'formal_shoe', 'sport shoes']
         };
         
         const slotLabels = { top: 'Top', bottom: 'Bottom', shoes: 'Shoes' };
