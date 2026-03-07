@@ -102,31 +102,31 @@
                 <div>
                     <label class="filter-label">Category</label>
                     <select id="categoryFilter" class="filter-select" onchange="applyFilters()">
-                        <option>All Categories</option>
-                        <optgroup label="Tops">
-                            <option>T-Shirts</option>
-                            <option>Shirts / Blouses</option>
-                            <option>Hoodies / Sweaters</option>
-                            <option>Jackets / Coats</option>
-                            <option>Tank Tops</option>
-                        </optgroup>
-                        <optgroup label="Bottoms">
-                            <option>Jeans</option>
-                            <option>Trousers / Chinos</option>
-                            <option>Shorts</option>
-                            <option>Skirts</option>
-                        </optgroup>
-                        <optgroup label="Footwear">
-                            <option>Sneakers</option>
-                            <option>Boots</option>
-                            <option>Formal Shoes</option>
-                            <option>Sandals</option>
-                        </optgroup>
-                        <optgroup label="Others">
-                            <option>Dresses</option>
-                            <option>Activewear</option>
-                            <option>Accessories</option>
-                        </optgroup>
+                        <option value="All Categories">All Categories</option>
+                        <option disabled>───────────</option>
+                        <option value="TOPS" style="font-weight:900">TOPS</option>
+                        <option value="T-Shirts">&nbsp;&nbsp;&nbsp;&nbsp;T-Shirts</option>
+                        <option value="Shirts / Blouses">&nbsp;&nbsp;&nbsp;&nbsp;Shirts / Blouses</option>
+                        <option value="Hoodies / Sweaters">&nbsp;&nbsp;&nbsp;&nbsp;Hoodies / Sweaters</option>
+                        <option value="Jackets / Coats">&nbsp;&nbsp;&nbsp;&nbsp;Jackets / Coats</option>
+                        <option value="Tank Tops">&nbsp;&nbsp;&nbsp;&nbsp;Tank Tops</option>
+                        <option disabled>───────────</option>
+                        <option value="BOTTOMS" style="font-weight:900">BOTTOMS</option>
+                        <option value="Jeans">&nbsp;&nbsp;&nbsp;&nbsp;Jeans</option>
+                        <option value="Trousers / Chinos">&nbsp;&nbsp;&nbsp;&nbsp;Trousers / Chinos</option>
+                        <option value="Shorts">&nbsp;&nbsp;&nbsp;&nbsp;Shorts</option>
+                        <option value="Skirts">&nbsp;&nbsp;&nbsp;&nbsp;Skirts</option>
+                        <option disabled>───────────</option>
+                        <option value="FOOTWEAR" style="font-weight:900">FOOTWEAR</option>
+                        <option value="Sneakers">&nbsp;&nbsp;&nbsp;&nbsp;Sneakers</option>
+                        <option value="Boots">&nbsp;&nbsp;&nbsp;&nbsp;Boots</option>
+                        <option value="Formal Shoes">&nbsp;&nbsp;&nbsp;&nbsp;Formal Shoes</option>
+                        <option value="Sandals">&nbsp;&nbsp;&nbsp;&nbsp;Sandals</option>
+                        <option disabled>───────────</option>
+                        <option value="OTHERS" style="font-weight:900">OTHERS</option>
+                        <option value="Dresses">&nbsp;&nbsp;&nbsp;&nbsp;Dresses</option>
+                        <option value="Activewear">&nbsp;&nbsp;&nbsp;&nbsp;Activewear</option>
+                        <option value="Accessories">&nbsp;&nbsp;&nbsp;&nbsp;Accessories</option>
                     </select>
                 </div>
 
@@ -239,6 +239,40 @@
     <script>
         let currentFilters = {};
         let searchTimeout = null;
+
+        const CATEGORY_MAP = {
+            "T-Shirts": ["Tshirts"],
+            "Shirts / Blouses": ["Shirts", "Tops"],
+            "Hoodies / Sweaters": ["Sweatshirts"],
+            "Jackets / Coats": ["Jackets"],
+            "Tank Tops": ["Tops"],
+            "Jeans": ["Jeans"],
+            "Trousers / Chinos": ["Trousers"],
+            "Shorts": ["Shorts"],
+            "Skirts": [],
+            "Sneakers": ["Sports Shoes", "Casual Shoes"],
+            "Boots": [],
+            "Formal Shoes": ["Formal Shoes"],
+            "Sandals": ["Sandals", "Flip Flops"],
+            "Dresses": ["Dresses"],
+            "Activewear": ["Track Pants", "Tshirts", "Shorts"],
+            "Accessories": ["Backpacks","Belts","Caps","Earrings","Handbags","Sunglasses","Wallets","Watches","Socks"]
+        };
+
+        const CATEGORY_GROUPS = {
+            TOPS: ["Tshirts", "Shirts", "Sweatshirts", "Tops", "Jackets"],
+            BOTTOMS: ["Jeans", "Trousers", "Shorts", "Track Pants"],
+            FOOTWEAR: ["Casual Shoes", "Sports Shoes", "Formal Shoes", "Sandals", "Heels", "Flip Flops"]
+        };
+
+        CATEGORY_MAP["TOPS"] = CATEGORY_GROUPS.TOPS;
+        CATEGORY_MAP["BOTTOMS"] = CATEGORY_GROUPS.BOTTOMS;
+        CATEGORY_MAP["FOOTWEAR"] = CATEGORY_GROUPS.FOOTWEAR;
+        CATEGORY_MAP["OTHERS"] = [
+            "Dresses","Backpacks","Belts","Bra","Briefs","Caps",
+            "Earrings","Handbags","Kurta Sets","Kurtas","Sarees",
+            "Socks","Sunglasses","Wallets","Watches"
+        ];
 
         // Load items when page loads
         window.addEventListener('DOMContentLoaded', () => {
@@ -419,15 +453,25 @@
             }
         }
 
-        // Apply filters
+        // Apply filters (with UI -> model category mapping, same as index.html)
         function applyFilters() {
-            const category = document.getElementById('categoryFilter').value;
+            const uiCategory = document.getElementById('categoryFilter').value;
             const color = document.getElementById('colorFilter').value;
             const material = document.getElementById('materialFilter').value;
             
             currentFilters = {};
-            
-            if (category !== 'All Categories') currentFilters.category = category;
+
+            if (uiCategory && uiCategory !== 'All Categories') {
+                const mapped = CATEGORY_MAP[uiCategory];
+                if (mapped && mapped.length === 1) {
+                    currentFilters.category = mapped[0];
+                } else if (mapped && mapped.length > 1) {
+                    currentFilters.category_group = mapped.join(',');
+                } else {
+                    currentFilters.category = uiCategory;
+                }
+            }
+
             if (color !== 'All Colors') currentFilters.color = color;
             if (material !== 'All Materials') currentFilters.material = material;
             

@@ -2,7 +2,7 @@
 SQLAlchemy ORM models for clothing items, colors, and outfits
 """
 
-from sqlalchemy import Column, Integer, String, Text, DECIMAL, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, SmallInteger, String, Text, DECIMAL, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -139,3 +139,27 @@ class Outfit(Base):
             'shoes': self.shoes.to_dict(include_colors=False) if self.shoes else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class OutfitFeedback(Base):
+    """User feedback on outfit combinations (+1 liked, -1 disliked)."""
+    __tablename__ = 'outfit_feedback'
+
+    id = Column(Integer, primary_key=True, index=True)
+    rating = Column(SmallInteger, nullable=False)  # +1 or -1
+
+    top_id = Column(Integer, ForeignKey('clothing_items.id', ondelete='SET NULL'), nullable=True)
+    bottom_id = Column(Integer, ForeignKey('clothing_items.id', ondelete='SET NULL'), nullable=True)
+    shoes_id = Column(Integer, ForeignKey('clothing_items.id', ondelete='SET NULL'), nullable=True)
+
+    top_category = Column(String(100))
+    top_color = Column(String(50))
+    top_material = Column(String(100))
+    bottom_category = Column(String(100))
+    bottom_color = Column(String(50))
+    bottom_material = Column(String(100))
+    shoes_category = Column(String(100))
+    shoes_color = Column(String(50))
+    shoes_material = Column(String(100))
+
+    created_at = Column(DateTime, server_default=func.now(), index=True)

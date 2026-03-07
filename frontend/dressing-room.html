@@ -297,14 +297,34 @@
             showSuccess(`Added ${item.primary_color} ${item.category} to ${slotLabels[slot]}`);
         }
 
-        function randomizeOutfit() {
-            ['top', 'bottom', 'shoes'].forEach(slot => {
-                const filtered = allItems.filter(item => slotCategories[slot].includes(item.category));
-                if (filtered.length > 0) {
-                    setOutfitSlot(slot, filtered[Math.floor(Math.random() * filtered.length)]);
+        async function randomizeOutfit() {
+            if (allItems.length === 0) {
+                showError('Not enough items in wardrobe to randomize');
+                return;
+            }
+            try {
+                const suggestion = await getSuggestion();
+                if (suggestion.top) {
+                    const item = allItems.find(i => i.id === suggestion.top.id);
+                    if (item) setOutfitSlot('top', item);
                 }
-            });
-            if (allItems.length === 0) showError('Not enough items in wardrobe to randomize');
+                if (suggestion.bottom) {
+                    const item = allItems.find(i => i.id === suggestion.bottom.id);
+                    if (item) setOutfitSlot('bottom', item);
+                }
+                if (suggestion.shoes) {
+                    const item = allItems.find(i => i.id === suggestion.shoes.id);
+                    if (item) setOutfitSlot('shoes', item);
+                }
+            } catch (err) {
+                // Fallback to pure random if API fails
+                ['top', 'bottom', 'shoes'].forEach(slot => {
+                    const filtered = allItems.filter(item => slotCategories[slot].includes(item.category));
+                    if (filtered.length > 0) {
+                        setOutfitSlot(slot, filtered[Math.floor(Math.random() * filtered.length)]);
+                    }
+                });
+            }
         }
 
         async function saveOutfit() {
@@ -324,16 +344,22 @@
             }
         }
 
-        function confirmSelection() {
+        async function confirmSelection() {
             if (!currentOutfit.top && !currentOutfit.bottom && !currentOutfit.shoes) {
                 showError('No items selected');
                 return;
             }
-            const items = [];
-            if (currentOutfit.top) items.push(`${currentOutfit.top.primary_color} ${currentOutfit.top.category}`);
-            if (currentOutfit.bottom) items.push(`${currentOutfit.bottom.primary_color} ${currentOutfit.bottom.category}`);
-            if (currentOutfit.shoes) items.push(`${currentOutfit.shoes.primary_color} ${currentOutfit.shoes.category}`);
-            showSuccess(`Confirmed: ${items.join(' + ')}`);
+            try {
+                await sendFeedback({
+                    top_id: currentOutfit.top?.id || null,
+                    bottom_id: currentOutfit.bottom?.id || null,
+                    shoes_id: currentOutfit.shoes?.id || null,
+                    rating: 1
+                });
+                showSuccess('Outfit liked! We\'ll suggest similar ones next time.');
+            } catch (err) {
+                showError('Failed to record feedback');
+            }
         }
 
         function loadOutfitFromURL() {
@@ -349,7 +375,19 @@
             });
         }
 
-        function resetSelection() {
+        async function resetSelection() {
+            if (currentOutfit.top || currentOutfit.bottom || currentOutfit.shoes) {
+                try {
+                    await sendFeedback({
+                        top_id: currentOutfit.top?.id || null,
+                        bottom_id: currentOutfit.bottom?.id || null,
+                        shoes_id: currentOutfit.shoes?.id || null,
+                        rating: -1
+                    });
+                } catch (err) {
+                    console.warn('Failed to record dislike:', err);
+                }
+            }
             currentOutfit = { top: null, bottom: null, shoes: null };
             ['top', 'bottom', 'shoes'].forEach(slot => {
                 const box = document.getElementById(`box-${slot}`);
@@ -357,7 +395,7 @@
                 box.style.backgroundColor = '#e5e5e5';
                 box.innerText = slotLabels[slot];
             });
-            showSuccess('Outfit cleared');
+            showSuccess('Got it, we\'ll avoid this style.');
         }
     </script>
 </body>

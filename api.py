@@ -12,10 +12,12 @@ from typing import List, Optional
 from pathlib import Path
 import shutil
 import hashlib
+import random
+from collections import Counter
 from pydantic import BaseModel
 
 # Import models and database
-from models.item import ClothingItem, ItemColor, Outfit
+from models.item import ClothingItem, ItemColor, Outfit, OutfitFeedback
 from utils.database import get_db, init_db
 from config import Config
 
@@ -86,6 +88,13 @@ class OutfitUpdateRequest(BaseModel):
     """Request model for updating an outfit"""
     name: Optional[str] = None
 
+class FeedbackRequest(BaseModel):
+    """Request model for outfit feedback"""
+    top_id: Optional[int] = None
+    bottom_id: Optional[int] = None
+    shoes_id: Optional[int] = None
+    rating: int  # +1 liked, -1 disliked
+
 # ==================== Auth (Option A: single admin) ====================
 
 def _get_admin_token() -> str:
@@ -143,7 +152,9 @@ def root():
             "outfits_list": "GET /api/outfits",
             "outfits_get": "GET /api/outfits/{outfit_id}",
             "outfits_update": "PUT /api/outfits/{outfit_id}",
-            "outfits_delete": "DELETE /api/outfits/{outfit_id}"
+            "outfits_delete": "DELETE /api/outfits/{outfit_id}",
+            "feedback_record": "POST /api/feedback",
+            "feedback_suggest": "GET /api/feedback/suggest"
         }
     }
 
@@ -455,6 +466,137 @@ def delete_outfit(outfit_id: int, db: Session = Depends(get_db)):
     db.delete(outfit)
     db.commit()
     return {"success": True, "message": f"Outfit {outfit_id} deleted", "deleted_id": outfit_id}
+
+
+# ==================== Feedback & Recommendation ====================
+
+SLOT_CATEGORIES = {
+    "top": ["Tshirts", "Shirts", "Tops", "Sweatshirts", "Jackets"],
+    "bottom": ["Jeans", "Trousers", "Shorts", "Track Pants"],
+    "shoes": ["Casual Shoes", "Sports Shoes", "Formal Shoes", "Sandals", "Flip Flops", "Heels"],
+}
+MIN_FEEDBACK_FOR_LEARNING = 3
+
+
+@app.post("/api/feedback")
+def record_feedback(data: FeedbackRequest, db: Session = Depends(get_db)):
+    """Record +1 (liked) or -1 (disliked) feedback for an outfit combination."""
+    if data.rating not in (1, -1):
+        raise HTTPException(status_code=400, detail="rating must be 1 or -1")
+    if not data.top_id and not data.bottom_id and not data.shoes_id:
+        raise HTTPException(status_code=400, detail="At least one item required")
+
+    def _attr(item_id, attr):
+        if not item_id:
+            return None
+        item = db.query(ClothingItem).filter(ClothingItem.id == item_id).first()
+        return getattr(item, attr, None) if item else None
+
+    fb = OutfitFeedback(
+        rating=data.rating,
+        top_id=data.top_id,
+        bottom_id=data.bottom_id,
+        shoes_id=data.shoes_id,
+        top_category=_attr(data.top_id, "category"),
+        top_color=_attr(data.top_id, "primary_color"),
+        top_material=_attr(data.top_id, "material"),
+        bottom_category=_attr(data.bottom_id, "category"),
+        bottom_color=_attr(data.bottom_id, "primary_color"),
+        bottom_material=_attr(data.bottom_id, "material"),
+        shoes_category=_attr(data.shoes_id, "category"),
+        shoes_color=_attr(data.shoes_id, "primary_color"),
+        shoes_material=_attr(data.shoes_id, "material"),
+    )
+    db.add(fb)
+    db.commit()
+    total = db.query(OutfitFeedback).count()
+    return {"success": True, "feedback_id": fb.id, "total_feedback": total}
+
+
+@app.get("/api/feedback/suggest")
+def suggest_outfit(db: Session = Depends(get_db)):
+    """Return a smart outfit suggestion scored by past feedback."""
+    all_items = db.query(ClothingItem).all()
+    tops = [i for i in all_items if i.category in SLOT_CATEGORIES["top"]]
+    bottoms = [i for i in all_items if i.category in SLOT_CATEGORIES["bottom"]]
+    shoes = [i for i in all_items if i.category in SLOT_CATEGORIES["shoes"]]
+
+    if not tops and not bottoms and not shoes:
+        raise HTTPException(status_code=404, detail="No items to build an outfit")
+
+    feedbacks = db.query(OutfitFeedback).all()
+
+    # Not enough feedback — pure random
+    if len(feedbacks) < MIN_FEEDBACK_FOR_LEARNING:
+        return _random_outfit(tops, bottoms, shoes)
+
+    # Build pattern scores from feedback history
+    cat_combos: Counter = Counter()     # ("Tshirts","Jeans","Casual Shoes") → net score
+    color_combos: Counter = Counter()   # ("Black","Blue","White") → net score
+    mat_combos: Counter = Counter()     # ("Cotton","Denim",None) → net score
+    item_scores: Counter = Counter()    # item_id → net score
+
+    for fb in feedbacks:
+        r = fb.rating
+        cat_combos[(fb.top_category, fb.bottom_category, fb.shoes_category)] += r
+        color_combos[(fb.top_color, fb.bottom_color, fb.shoes_color)] += r
+        mat_combos[(fb.top_material, fb.bottom_material, fb.shoes_material)] += r
+        if fb.top_id:
+            item_scores[fb.top_id] += r
+        if fb.bottom_id:
+            item_scores[fb.bottom_id] += r
+        if fb.shoes_id:
+            item_scores[fb.shoes_id] += r
+
+    # Generate candidates and score them
+    num_candidates = min(30, max(5, len(tops) * len(bottoms) * len(shoes) if tops and bottoms and shoes else 10))
+    candidates = []
+    for _ in range(num_candidates):
+        t = random.choice(tops) if tops else None
+        b = random.choice(bottoms) if bottoms else None
+        s = random.choice(shoes) if shoes else None
+        score = _score_combo(t, b, s, cat_combos, color_combos, mat_combos, item_scores)
+        candidates.append((score, t, b, s))
+
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    _, best_t, best_b, best_s = candidates[0]
+
+    return {
+        "top": best_t.to_dict(include_colors=False) if best_t else None,
+        "bottom": best_b.to_dict(include_colors=False) if best_b else None,
+        "shoes": best_s.to_dict(include_colors=False) if best_s else None,
+    }
+
+
+def _random_outfit(tops, bottoms, shoes):
+    return {
+        "top": random.choice(tops).to_dict(include_colors=False) if tops else None,
+        "bottom": random.choice(bottoms).to_dict(include_colors=False) if bottoms else None,
+        "shoes": random.choice(shoes).to_dict(include_colors=False) if shoes else None,
+    }
+
+
+def _score_combo(t, b, s, cat_combos, color_combos, mat_combos, item_scores):
+    tc = t.category if t else None
+    bc = b.category if b else None
+    sc = s.category if s else None
+
+    score = 0.0
+    score += cat_combos.get((tc, bc, sc), 0) * 3
+    score += color_combos.get(
+        (t.primary_color if t else None, b.primary_color if b else None, s.primary_color if s else None), 0
+    ) * 2
+    score += mat_combos.get(
+        (t.material if t else None, b.material if b else None, s.material if s else None), 0
+    ) * 1.5
+    if t:
+        score += item_scores.get(t.id, 0)
+    if b:
+        score += item_scores.get(b.id, 0)
+    if s:
+        score += item_scores.get(s.id, 0)
+    score += random.uniform(0, 1.5)
+    return score
 
 
 # ==================== Statistics Endpoints (Bonus) ====================

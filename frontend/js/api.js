@@ -220,6 +220,30 @@ async function deleteOutfitAPI(outfitId) {
     return await response.json();
 }
 
+// ==================== Feedback & Recommendation API ====================
+
+async function sendFeedback(data) {
+    const response = await fetch(`${API_URL}/api/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to send feedback');
+    }
+    return await response.json();
+}
+
+async function getSuggestion() {
+    const response = await fetch(`${API_URL}/api/feedback/suggest`);
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'No suggestion available');
+    }
+    return await response.json();
+}
+
 // ==================== Helper Functions ====================
 
 /**
