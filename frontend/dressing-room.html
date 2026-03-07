@@ -212,9 +212,9 @@
             items.forEach(item => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'aspect-square bg-white/50 rounded-lg wardrobe-item overflow-hidden cursor-pointer hover:ring-2 hover:ring-black transition';
-                itemDiv.title = `${item.primary_color} ${item.category}`;
+                itemDiv.title = `${item.primary_color} ${getDisplayCategory(item.category)}`;
                 itemDiv.onclick = () => selectItemForOutfit(item);
-                itemDiv.innerHTML = `<img src="${getItemImageUrl(item.id, 'segmented')}" class="w-full h-full object-contain p-1" alt="${item.category}">`;
+                itemDiv.innerHTML = `<img src="${getItemImageUrl(item.id, 'segmented')}" class="w-full h-full object-contain p-1" alt="${getDisplayCategory(item.category)}">`;
                 grid.appendChild(itemDiv);
             });
         }
@@ -269,8 +269,8 @@
                         closePicker();
                     };
                     div.innerHTML = `
-                        <img src="${getItemImageUrl(item.id, 'segmented')}" alt="${item.category}">
-                        <span>${item.primary_color || ''} ${item.category || ''}</span>
+                        <img src="${getItemImageUrl(item.id, 'segmented')}" alt="${getDisplayCategory(item.category)}">
+                        <span>${item.primary_color || ''} ${getDisplayCategory(item.category) || ''}</span>
                     `;
                     grid.appendChild(div);
                 });
@@ -294,7 +294,7 @@
             box.style.backgroundRepeat = 'no-repeat';
             box.style.backgroundPosition = 'center';
             box.innerText = '';
-            showSuccess(`Added ${item.primary_color} ${item.category} to ${slotLabels[slot]}`);
+            showSuccess(`Added ${item.primary_color} ${getDisplayCategory(item.category)} to ${slotLabels[slot]}`);
         }
 
         async function randomizeOutfit() {

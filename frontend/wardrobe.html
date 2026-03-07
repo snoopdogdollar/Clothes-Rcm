@@ -318,7 +318,7 @@
             grid.innerHTML = '';
             
             items.forEach(item => {
-                const displayName = getItemDisplayName(item.id, `${item.primary_color || ''} ${item.category || 'Item'}`.trim());
+                const displayName = getItemDisplayName(item.id, `${item.primary_color || ''} ${getDisplayCategory(item.category) || 'Item'}`.trim());
                 const card = document.createElement('div');
                 card.className = 'item-card p-4 flex flex-col h-full';
                 card.setAttribute('data-item-id', item.id);
@@ -330,7 +330,7 @@
 
                 card.innerHTML = `
                     <div class="aspect-square bg-white rounded-xl mb-4 flex items-center justify-center p-4 overflow-hidden">
-                        <img src="${getItemImageUrl(item.id, 'segmented')}" class="w-full h-full object-contain" alt="${item.category || ''}">
+                        <img src="${getItemImageUrl(item.id, 'segmented')}" class="w-full h-full object-contain" alt="${getDisplayCategory(item.category) || ''}">
                     </div>
                     <div class="space-y-1 flex-grow min-h-0">
                         <h4 class="card-item-name text-sm font-black uppercase leading-tight line-clamp-2">${escapeHtml(displayName)}</h4>
@@ -365,7 +365,7 @@
             try {
                 const item = await getItem(itemId);
                 currentModalItemId = item.id;
-                currentModalDefaultName = `${item.primary_color || ''} ${item.category || 'Item'}`.trim() || 'Item';
+                currentModalDefaultName = `${item.primary_color || ''} ${getDisplayCategory(item.category) || 'Item'}`.trim() || 'Item';
                 const displayName = getItemDisplayName(item.id, currentModalDefaultName);
                 
                 const modal = document.getElementById('itemModal');

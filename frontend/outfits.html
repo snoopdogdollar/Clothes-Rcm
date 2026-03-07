@@ -204,7 +204,7 @@
             if (!item) {
                 return `<div class="outfit-slot ${slotClass}"><div class="outfit-slot-empty">—</div></div>`;
             }
-            return `<div class="outfit-slot ${slotClass}"><img src="${getItemImageUrl(item.id, 'segmented')}" alt="${item.category || ''}"></div>`;
+            return `<div class="outfit-slot ${slotClass}"><img src="${getItemImageUrl(item.id, 'segmented')}" alt="${getDisplayCategory(item.category) || ''}"></div>`;
         }
 
         function renderOutfits(outfits) {
@@ -282,7 +282,7 @@
                     <div class="detail-slot">
                         <img src="${getItemImageUrl(p.item.id, 'segmented')}" alt="">
                         <div>
-                            <div class="detail-slot-info">${p.item.primary_color || ''} ${p.item.category || ''}</div>
+                            <div class="detail-slot-info">${p.item.primary_color || ''} ${getDisplayCategory(p.item.category) || ''}</div>
                             <div class="detail-slot-sub">${p.label} &bull; ${p.item.material || 'Unknown material'}</div>
                         </div>
                     </div>`;

@@ -412,7 +412,7 @@
                 itemsHTML += `
                     <div class="marquee-item" data-item-id="${item.id}" style="background-color: ${bgColor};" onclick="openItemModal(${item.id})">
                         <img src="${getItemImageUrl(item.id, 'segmented')}" 
-                             alt="${(item.primary_color || '') + ' ' + (item.category || '')}" 
+                             alt="${(item.primary_color || '') + ' ' + getDisplayCategory(item.category || '')}" 
                              title="Click to view details">
                     </div>
                 `;
@@ -435,7 +435,7 @@
             try {
                 const item = await getItem(itemId);
                 uploadModalItemId = item.id;
-                uploadModalDefaultName = `${item.primary_color || ''} ${item.category || 'Item'}`.trim() || 'Item';
+                uploadModalDefaultName = `${item.primary_color || ''} ${getDisplayCategory(item.category) || 'Item'}`.trim() || 'Item';
                 const displayName = getItemDisplayName(item.id, uploadModalDefaultName);
                 
                 document.getElementById('itemModal').style.display = 'flex';
@@ -592,8 +592,18 @@
         // Display AI analysis results
         function displayResults(data) {
             // Category
-            document.getElementById('aiCategory').textContent = data.category;
+            document.getElementById('aiCategory').textContent = getDisplayCategory(data.category);
             document.getElementById('aiConfidence').textContent = `Confidence: ${formatConfidence(data.confidence)}`;
+            
+            // Auto-apply material when classified as leather_jacket or denim_jacket
+            const materialSelect = document.getElementById('material');
+            if (data.category === 'leather_jacket') {
+                materialSelect.value = 'Leather';
+            } else if (data.category === 'denim_jacket') {
+                materialSelect.value = 'Denim';
+            } else {
+                materialSelect.value = '';
+            }
             
             // Primary color
             document.getElementById('primaryColorName').textContent = data.primary_color;

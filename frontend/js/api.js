@@ -46,6 +46,21 @@ async function login(username, password) {
     return data;
 }
 
+// ==================== Display Helpers ====================
+
+/** Format category for display: replace underscores with spaces (e.g. long_sleeve → long sleeve) */
+function formatCategoryForDisplay(cat) {
+    if (!cat || typeof cat !== 'string') return '';
+    return cat.replace(/_/g, ' ');
+}
+
+/** Simplified display name: leather_jacket/denim_jacket → Jacket, others stay descriptive */
+function getDisplayCategory(cat) {
+    if (!cat || typeof cat !== 'string') return '';
+    if (cat === 'leather_jacket' || cat === 'denim_jacket') return 'Jacket';
+    return formatCategoryForDisplay(cat);
+}
+
 // ==================== Items API ====================
 
 /**
