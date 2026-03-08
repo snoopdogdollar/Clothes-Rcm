@@ -107,8 +107,6 @@
                         <option value="TOPS" style="font-weight:900">TOPS</option>
                         <option value="T-Shirts">&nbsp;&nbsp;&nbsp;&nbsp;T-Shirts</option>
                         <option value="Shirts">&nbsp;&nbsp;&nbsp;&nbsp;Shirts</option>
-                        <option value="Polo">&nbsp;&nbsp;&nbsp;&nbsp;Polo</option>
-                        <option value="Long Sleeve">&nbsp;&nbsp;&nbsp;&nbsp;Long Sleeve</option>
                         <option value="Hoodies / Sweaters">&nbsp;&nbsp;&nbsp;&nbsp;Hoodies / Sweaters</option>
                         <option value="Jackets">&nbsp;&nbsp;&nbsp;&nbsp;Jackets</option>
                         <option disabled>───────────</option>
@@ -116,8 +114,6 @@
                         <option value="Jeans">&nbsp;&nbsp;&nbsp;&nbsp;Jeans</option>
                         <option value="Trousers">&nbsp;&nbsp;&nbsp;&nbsp;Trousers</option>
                         <option value="Shorts">&nbsp;&nbsp;&nbsp;&nbsp;Shorts</option>
-                        <option value="Jorts">&nbsp;&nbsp;&nbsp;&nbsp;Jorts</option>
-                        <option value="Cargo">&nbsp;&nbsp;&nbsp;&nbsp;Cargo</option>
                         <option disabled>───────────</option>
                         <option value="FOOTWEAR" style="font-weight:900">FOOTWEAR</option>
                         <option value="Casual Shoes">&nbsp;&nbsp;&nbsp;&nbsp;Casual Shoes</option>
@@ -241,19 +237,15 @@
         let searchTimeout = null;
 
         // Map UI category labels to actual model categories (from models/class_names.json)
-        // 19-class model: cap, cargo, casual_shoe, denim_jacket, formal_shoe, hoodie, jacket, jeans, jorts, leather_jacket, long_sleeve, polo, shirt, shorts, sport shoes, sweater, t-shirt, trousers, watch
+        // 13-class model: cap, casual_shoe, formal_shoe, hoodie, jacket, jeans, shirt, shorts, sport shoes, sweater, t-shirt, trousers, watch
         const CATEGORY_MAP = {
             "T-Shirts": ["t-shirt"],
             "Shirts": ["shirt"],
-            "Polo": ["polo"],
-            "Long Sleeve": ["long_sleeve"],
             "Hoodies / Sweaters": ["hoodie", "sweater"],
-            "Jackets": ["jacket", "denim_jacket", "leather_jacket"],
+            "Jackets": ["jacket"],
             "Jeans": ["jeans"],
             "Trousers": ["trousers"],
             "Shorts": ["shorts"],
-            "Jorts": ["jorts"],
-            "Cargo": ["cargo"],
             "Casual Shoes": ["casual_shoe"],
             "Formal Shoes": ["formal_shoe"],
             "Sport Shoes": ["sport shoes"],
@@ -262,8 +254,8 @@
         };
 
         const CATEGORY_GROUPS = {
-            TOPS: ["t-shirt", "shirt", "polo", "long_sleeve", "hoodie", "sweater", "jacket", "denim_jacket", "leather_jacket"],
-            BOTTOMS: ["jeans", "trousers", "shorts", "jorts", "cargo"],
+            TOPS: ["t-shirt", "shirt", "hoodie", "sweater", "jacket"],
+            BOTTOMS: ["jeans", "trousers", "shorts"],
             FOOTWEAR: ["casual_shoe", "formal_shoe", "sport shoes"],
             ACCESSORIES: ["cap", "watch"]
         };

@@ -471,8 +471,8 @@ def delete_outfit(outfit_id: int, db: Session = Depends(get_db)):
 # ==================== Feedback & Recommendation ====================
 
 SLOT_CATEGORIES = {
-    "top": ["t-shirt", "shirt", "polo", "long_sleeve", "hoodie", "sweater", "jacket", "denim_jacket", "leather_jacket"],
-    "bottom": ["jeans", "trousers", "shorts", "jorts", "cargo"],
+    "top": ["t-shirt", "shirt", "hoodie", "sweater", "jacket"],
+    "bottom": ["jeans", "trousers", "shorts"],
     "shoes": ["casual_shoe", "formal_shoe", "sport shoes"],
 }
 MIN_FEEDBACK_FOR_LEARNING = 3

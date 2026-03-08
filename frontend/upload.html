@@ -595,16 +595,6 @@
             document.getElementById('aiCategory').textContent = getDisplayCategory(data.category);
             document.getElementById('aiConfidence').textContent = `Confidence: ${formatConfidence(data.confidence)}`;
             
-            // Auto-apply material when classified as leather_jacket or denim_jacket
-            const materialSelect = document.getElementById('material');
-            if (data.category === 'leather_jacket') {
-                materialSelect.value = 'Leather';
-            } else if (data.category === 'denim_jacket') {
-                materialSelect.value = 'Denim';
-            } else {
-                materialSelect.value = '';
-            }
-            
             // Primary color
             document.getElementById('primaryColorName').textContent = data.primary_color;
             document.getElementById('paletteType').textContent = data.palette_type;

@@ -1,5 +1,5 @@
 """
-Segmentation utilities using U-2-Net for image segmentation.
+Segmentation utilities using rembg (isnet-general-use model) for image segmentation.
 """
 import warnings
 from PIL import Image
@@ -21,8 +21,30 @@ except ImportError:
 # Import rembg
 try:
     from rembg import remove
+    from rembg.session_factory import new_session
 except ImportError as e:
     raise ImportError(f"Failed to import rembg: {e}")
+
+# Lazy-loaded session for isnet-general-use (better quality than default u2net)
+_session = None
+_session_failed = False
+
+
+def _get_session():
+    """Get or create the rembg session (isnet-general-use model)."""
+    global _session, _session_failed
+    if _session is not None:
+        return _session
+    if _session_failed:
+        return None
+    try:
+        _session = new_session('isnet-general-use')
+        print("  Using rembg model: isnet-general-use")
+        return _session
+    except Exception as e:
+        print(f"  ⚠ isnet-general-use failed ({e}), falling back to default model")
+        _session_failed = True
+        return None
 
 
 def extract_edge_band(binary_mask, band_width=3):
@@ -91,7 +113,7 @@ def check_edge_quality(alpha, edge_band_mask):
 
 def segment_image(input_image):
     """
-    Segment an image using U-2-Net with conditional alpha matting.
+    Segment an image using rembg (isnet-general-use) with conditional alpha matting.
     
     Pipeline:
     0. Resize if too large (prevent memory errors)
@@ -117,8 +139,12 @@ def segment_image(input_image):
         input_image.thumbnail((MAX_SIZE, MAX_SIZE), Image.Resampling.LANCZOS)
         print(f"  Resized from {original_size} to {input_image.size} to prevent memory errors")
     
-    # Step 1: Fast Segmentation (no alpha matting)
-    output_image = remove(input_image, alpha_matting=False)
+    # Step 1: Fast Segmentation (no alpha matting) using isnet-general-use
+    session = _get_session()
+    kwargs = {'alpha_matting': False}
+    if session is not None:
+        kwargs['session'] = session
+    output_image = remove(input_image, **kwargs)
     
     # Convert to numpy array for processing
     output_array = np.array(output_image)
@@ -145,13 +171,15 @@ def segment_image(input_image):
     if needs_alpha_matting:
         try:
             # Re-run with alpha matting for better edge quality
-            output_image_refined = remove(
-                input_image,
-                alpha_matting=True,
-                alpha_matting_foreground_threshold=250,
-                alpha_matting_background_threshold=10,
-                alpha_matting_erode_size=15
-            )
+            matting_kwargs = {
+                'alpha_matting': True,
+                'alpha_matting_foreground_threshold': 250,
+                'alpha_matting_background_threshold': 10,
+                'alpha_matting_erode_size': 15,
+            }
+            if session is not None:
+                matting_kwargs['session'] = session
+            output_image_refined = remove(input_image, **matting_kwargs)
             output_array_refined = np.array(output_image_refined)
             if output_array_refined.shape[2] == 4:
                 alpha = output_array_refined[:, :, 3]
