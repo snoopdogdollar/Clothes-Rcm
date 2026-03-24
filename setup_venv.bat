@@ -1,7 +1,7 @@
 @echo off
 echo Creating virtual environment...
 
-python -m venv venv
+    python -m venv venv
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
