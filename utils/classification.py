@@ -89,10 +89,12 @@ class ClothingClassifier:
             class FashionMNISTCNN(nn.Module):
                 def __init__(self, num_classes=7):
                     super(FashionMNISTCNN, self).__init__()
-                    # Use ResNet18 as base model (matches Kaggle training)
-                    self.base_model = timm.create_model('resnet18', pretrained=True, num_classes=num_classes)
+                    # Use ResNet50 as base model (must match training + checkpoint)
+                    # No need to download ImageNet weights; we load the checkpoint state_dict below.
+                    self.base_model = timm.create_model('resnet50', pretrained=False, num_classes=num_classes)
                     self.features = nn.Sequential(*list(self.base_model.children())[:-1])
-                    enet_out_size = 512
+                    # ResNet50 final feature dim is 2048 (before the classification head)
+                    enet_out_size = 2048
                     # Custom classifier head
                     self.classifier = nn.Linear(enet_out_size, num_classes)
                 
@@ -139,7 +141,7 @@ class ClothingClassifier:
                 f"Input tensor shape mismatch! Expected {expected_shape}, got {input_tensor.shape}"
             )
         
-        print(f"  Input tensor shape: {input_tensor.shape} (correct for ResNet18)")
+        print(f"  Input tensor shape: {input_tensor.shape} (correct for ResNet50)")
         
         # Run inference with no gradient computation
         with torch.no_grad():
