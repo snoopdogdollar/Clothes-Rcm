@@ -1,126 +1,73 @@
-# U-2-Net Image Segmentation & Clothing Analysis
+# Fashion Wardrobe (Segmentation + Classification + Colors)
 
-This application uses U-2-Net for salient object detection and segmentation, with advanced clothing classification and color extraction.
+FastAPI app that lets you upload clothing photos, removes the background (U-2-Net via `rembg`), classifies the clothing type (ResNet50), extracts dominant colors, and stores everything in PostgreSQL. A simple HTML frontend is included.
 
 ## Features
 
-- **Automatic batch processing** of all images in a folder
-- **U-2-Net based segmentation** using rembg library with transparent backgrounds
-- **Clothing classification** using ResNet18-based model trained on 145 articleType categories
-- **Advanced color extraction** with 150+ detailed color names (Crimson, Cerulean, etc.)
-- **Color palette analysis** (warm/cool, neutral, vibrant detection)
-- **Smart memory management** - auto-resize large images to prevent crashes
-- **Conditional alpha matting** for high-quality edge refinement
-- **Visual display** of before/after results
-- Supports multiple image formats (JPG, PNG, BMP, TIFF, WEBP, AVIF)
+- **Upload → AI pipeline → Save**: segmentation → classification → color extraction → DB
+- **Segmentation**: `rembg` (U-2-Net / ISNet variants depending on your config)
+- **Classification**: `timm` ResNet50 + custom linear head (uses your `models/clothing_classifier.pth`)
+- **Color extraction**: K-means over pixels + named colors
+- **Frontend**: simple HTML pages in `frontend/` using `frontend/js/api.js`
+- **Admin login (single account)**: credentials in `.env`, token stored in browser localStorage
 
-## Installation
+## Quick start (Windows)
 
-### Using Virtual Environment (Recommended)
+1. Create your env file:
+   - Copy `.env.example` → `.env`
+   - Set your `DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `SECRET_KEY`
+2. Run setup + start API:
+   - Double-click `setup.bat`
+3. Open API docs:
+   - `http://localhost:8000/docs`
 
-A virtual environment isolates the project dependencies from your system Python, keeping your system clean.
+## Run frontend
 
-**Option 1: Using the setup scripts (Windows)**
+Because browser CORS rules are stricter when opening files directly, use a tiny local server:
 
-1. Double-click `setup_venv.bat` to create the virtual environment
-2. Double-click `activate_venv.bat` to activate it and open a command prompt
-3. Install dependencies:
 ```bash
-pip install -r requirements.txt
+cd frontend
+python -m http.server 3000
 ```
 
-**Option 2: Manual setup (Windows/Linux/Mac)**
+Then open `http://localhost:3000/login.html`.
 
-1. Create virtual environment:
-```bash
-python -m venv venv
-```
+## API overview
 
-2. Activate virtual environment:
-   - **Windows:**
-     ```bash
-     venv\Scripts\activate
-     ```
-   - **Linux/Mac:**
-     ```bash
-     source venv/bin/activate
-     ```
+- **Auth**
+  - `POST /api/auth/login` → returns `{ token }`
+- **Items**
+  - `POST /api/items/upload` (multipart file upload)
+  - `GET /api/items`
+  - `GET /api/items/{id}`
+  - `PUT /api/items/{id}`
+  - `DELETE /api/items/{id}`
+  - `GET /api/items/{id}/image?type=original|segmented`
 
-3. Install required dependencies:
-```bash
-pip install -r requirements.txt
-```
+## Model files
 
-**Note:** 
-- The virtual environment will be created in a `venv/` folder in your project directory
-- On first run, the rembg library will automatically download the U-2-Net model weights (~176MB). This is a one-time download.
-- To deactivate the virtual environment later, simply type: `deactivate`
+Place these in `models/`:
 
-## Usage
+- `models/clothing_classifier.pth`
+- `models/class_names.json`
 
-**Important:** Make sure your virtual environment is activated before running the application!
-
-**Quick Start (Windows):**
-1. Double-click `setup_venv.bat` (first time only)
-2. Double-click `run.bat` to run the application
-
-**Manual Steps:**
-
-1. Activate virtual environment (if not already activated):
-   - **Windows:** Double-click `activate_venv.bat` or run `venv\Scripts\activate`
-   - **Linux/Mac:** Run `source venv/bin/activate`
-
-2. Place your images in the `input/` folder
-
-3. Run the application:
-```bash
-python app.py
-```
-
-4. Processed images will be saved in the `output/` folder with white backgrounds
-
-## Folder Structure
+## Project layout
 
 ```
 PROJECT/
-├── app.py              # Main application script
-├── requirements.txt    # Python dependencies
-├── README.md          # This file
-├── setup_venv.bat     # Script to create virtual environment (Windows)
-├── activate_venv.bat  # Script to activate virtual environment (Windows)
-├── run.bat            # Script to run the application (Windows)
-├── venv/              # Virtual environment (created after setup)
-├── models/            # Model files (.pth and class_names.json)
-├── input/             # Place your images here
-└── output/            # Processed images will be saved here
+├── api.py
+├── config.py
+├── requirements.txt
+├── setup.bat
+├── .env.example
+├── frontend/
+├── utils/
+├── models/              # DB models + classifier artifacts (can be split later)
+├── data/uploads/        # generated (gitignored)
+└── output/              # generated (gitignored)
 ```
 
-## Supported Image Formats
+## Notes
 
-- JPEG (.jpg, .jpeg)
-- PNG (.png)
-- BMP (.bmp)
-- TIFF (.tiff, .tif)
-- WEBP (.webp)
-
-## How It Works
-
-1. The application scans the `input/` folder for images
-2. Each image is processed using U-2-Net to detect and segment the main object
-3. The segmented object is classified using a ResNet18-based model (trained on 145 articleType categories)
-4. Dominant colors are extracted using K-means clustering in LAB color space
-5. Colors are mapped to specific names (e.g., "Crimson", "Navy Blue", "Olive Green")
-6. Results are saved to the `output/` folder as transparent PNGs with format: `Color-Category-filename.png`
-7. Summary shows category, confidence, primary color, and palette type for each image
-
-## Requirements
-
-- Python 3.7+
-- PyTorch (automatically installed via requirements.txt)
-- CUDA-capable GPU (optional, but recommended for faster processing)
-
-## Troubleshooting
-
-- **Model download issues**: Ensure you have internet connection on first run
-- **Memory errors**: Process images one at a time or resize large images
-- **Display not working**: Install matplotlib: `pip install matplotlib`
+- Generated folders like `data/` and `output/` are intentionally **not** committed.
+- If you move classifier artifacts into a dedicated folder later (e.g. `ml/`), update the default paths in `utils/classification.py`.
