@@ -40,6 +40,20 @@ class Config:
     # File upload settings
     MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
     ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp', '.avif'}
+
+    # Ollama (local LLM)
+    OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+    OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3.2:1b')
+    # Longer default for CPU / large prompts; override in .env if needed
+    OLLAMA_GENERATE_TIMEOUT = float(os.getenv('OLLAMA_GENERATE_TIMEOUT', os.getenv('OLLAMA_TIMEOUT', '300')))
+    # Embeddings must match ingest / Langflow (e.g. nomic-embed-text)
+    OLLAMA_EMBED_MODEL = os.getenv('OLLAMA_EMBED_MODEL', 'nomic-embed-text')
+    OLLAMA_EMBED_TIMEOUT = float(os.getenv('OLLAMA_EMBED_TIMEOUT', '60'))
+
+    # Chroma (same persist dir as Langflow / local RAG)
+    CHROMA_PERSIST_DIR = os.getenv('CHROMA_PERSIST_DIR', r'D:\langflow_db')
+    CHROMA_COLLECTION_NAME = os.getenv('CHROMA_COLLECTION', 'fashion_rules_db')
+    CHROMA_QUERY_K = int(os.getenv('CHROMA_QUERY_K', '5'))
     
     @classmethod
     def get_upload_path(cls, filename: str) -> Path:

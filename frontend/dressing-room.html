@@ -199,9 +199,15 @@
                             <!-- messages -->
                         </div>
                         <label for="aiChatInput" class="sr-only">AI suggestion message</label>
-                        <input type="text" id="aiChatInput" autocomplete="off"
-                            class="mt-2 w-full rounded-md border border-gray-400/50 bg-white/90 px-2 py-1.5 text-[11px] placeholder:text-gray-400 focus:border-gray-800 focus:outline-none focus:ring-1 focus:ring-black/20"
-                            placeholder="what should you wear today ?....">
+                        <div class="mt-2 flex gap-1.5 items-center">
+                            <input type="text" id="aiChatInput" autocomplete="off"
+                                class="flex-1 min-w-0 rounded-md border border-gray-400/50 bg-white/90 px-2 py-1.5 text-[11px] placeholder:text-gray-400 focus:border-gray-800 focus:outline-none focus:ring-1 focus:ring-black/20"
+                                placeholder="what should you wear today ?....">
+                            <button type="button" id="aiRegenerateBtn" title="Another suggestion"
+                                class="flex-shrink-0 rounded-md border border-gray-400/50 bg-white/90 px-2 py-1.5 text-[9px] font-bold uppercase tracking-tighter hover:bg-black hover:text-white transition">
+                                Again
+                            </button>
+                        </div>
                     </section>
                 </div>
 
@@ -240,6 +246,7 @@
         let allItems = [];
         let currentOutfit = { top: null, bottom: null, shoes: null };
         let currentPickerSlot = null;
+        let lastUserChatMessage = '';
         
         // Category mappings for outfit slots (13-class model: class_names.json)
         const slotCategories = {
@@ -259,14 +266,16 @@
         function initAiSuggestionChat() {
             const input = document.getElementById('aiChatInput');
             const box = document.getElementById('aiChatMessages');
+            const regen = document.getElementById('aiRegenerateBtn');
             if (!input || !box) return;
             appendAiBotMessage('Hi! I’m your AI suggestion assistant. Ask what to wear or describe your day.');
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    sendAiSuggestion();
+                    sendAiSuggestion(false);
                 }
             });
+            if (regen) regen.addEventListener('click', () => sendAiSuggestion(true));
         }
 
         function appendAiUserMessage(text) {
@@ -293,14 +302,66 @@
             return d.innerHTML;
         }
 
-        function sendAiSuggestion() {
+        async function sendAiSuggestion(regenerate) {
             const input = document.getElementById('aiChatInput');
-            const text = (input.value || '').trim();
-            if (!text) return;
-            appendAiUserMessage(text);
-            input.value = '';
-            // Placeholder until Llama/RAG API is wired
-            appendAiBotMessage('Thanks! Full AI + wardrobe recommendations are coming soon. For now, try Randomize or tap items in Wardrobe.');
+            let text = (input.value || '').trim();
+            if (regenerate) {
+                text = lastUserChatMessage || 'Suggest another outfit from my wardrobe.';
+            } else {
+                if (!text) return;
+                lastUserChatMessage = text;
+                appendAiUserMessage(text);
+                input.value = '';
+            }
+            input.disabled = true;
+            const regen = document.getElementById('aiRegenerateBtn');
+            if (regen) regen.disabled = true;
+            try {
+                const data = await suggestOutfitChat(text, { regenerate: !!regenerate });
+                appendAiBotMessage(data.reply || '');
+                if (data.shopping_hints && data.shopping_hints.length) {
+                    appendAiBotMessage('Ideas if something is missing: ' + data.shopping_hints.join(', '));
+                }
+                applyOutfitFromChat(data);
+            } catch (err) {
+                showError(err.message || 'Suggestion failed');
+                appendAiBotMessage('Something went wrong. Check that you are logged in and the API is running.');
+            } finally {
+                input.disabled = false;
+                if (regen) regen.disabled = false;
+            }
+        }
+
+        function setOutfitSlot(slot, item, silent) {
+            currentOutfit[slot] = item;
+            const box = document.getElementById(`box-${slot}`);
+            box.style.backgroundImage = `url('${getItemImageUrl(item.id, 'segmented')}')`;
+            box.style.backgroundSize = 'contain';
+            box.style.backgroundRepeat = 'no-repeat';
+            box.style.backgroundPosition = 'center';
+            box.innerText = '';
+            if (!silent) {
+                showSuccess(`Added ${item.primary_color} ${getDisplayCategory(item.category)} to ${slotLabels[slot]}`);
+            }
+        }
+
+        function applyOutfitFromChat(data) {
+            let n = 0;
+            if (data.top_id) {
+                const it = allItems.find(i => i.id === data.top_id);
+                if (it) { setOutfitSlot('top', it, true); n++; }
+            }
+            if (data.bottom_id) {
+                const it = allItems.find(i => i.id === data.bottom_id);
+                if (it) { setOutfitSlot('bottom', it, true); n++; }
+            }
+            if (data.shoes_id) {
+                const it = allItems.find(i => i.id === data.shoes_id);
+                if (it) { setOutfitSlot('shoes', it, true); n++; }
+            }
+            if (n > 0) {
+                showSuccess('Outfit slots updated from AI suggestion.');
+            }
         }
 
         // Load items from API
@@ -401,17 +462,6 @@
         }
 
         // ==================== Outfit Slots ====================
-
-        function setOutfitSlot(slot, item) {
-            currentOutfit[slot] = item;
-            const box = document.getElementById(`box-${slot}`);
-            box.style.backgroundImage = `url('${getItemImageUrl(item.id, 'segmented')}')`;
-            box.style.backgroundSize = 'contain';
-            box.style.backgroundRepeat = 'no-repeat';
-            box.style.backgroundPosition = 'center';
-            box.innerText = '';
-            showSuccess(`Added ${item.primary_color} ${getDisplayCategory(item.category)} to ${slotLabels[slot]}`);
-        }
 
         async function randomizeOutfit() {
             if (allItems.length === 0) {

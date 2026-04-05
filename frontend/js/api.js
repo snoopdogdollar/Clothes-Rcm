@@ -259,6 +259,34 @@ async function getSuggestion() {
     return await response.json();
 }
 
+/**
+ * AI outfit chat (RAG + Ollama, or fallback). Requires login token.
+ * @param {string} message
+ * @param {{ regenerate?: boolean }} [opts]
+ */
+async function suggestOutfitChat(message, opts = {}) {
+    const token = getToken();
+    if (!token) {
+        throw new Error('Not logged in');
+    }
+    const response = await fetch(`${API_URL}/api/chat/outfit-suggest`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+            message,
+            regenerate: !!opts.regenerate,
+        }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.detail || 'Chat suggestion failed');
+    }
+    return data;
+}
+
 // ==================== Helper Functions ====================
 
 /**

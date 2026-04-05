@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from typing import List, Optional
+from typing import List, Optional, Any
 from pathlib import Path
 import shutil
 import hashlib
@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from models.item import ClothingItem, ItemColor, Outfit, OutfitFeedback
 from utils.database import get_db, init_db
 from config import Config
+from utils.outfit_chat import build_outfit_suggestion
 
 # Import AI pipeline
 from utils.segmentation import segment_image
@@ -95,6 +96,11 @@ class FeedbackRequest(BaseModel):
     shoes_id: Optional[int] = None
     rating: int  # +1 liked, -1 disliked
 
+class OutfitChatRequest(BaseModel):
+    """Chat message for AI outfit suggestion"""
+    message: str
+    regenerate: bool = False
+
 # ==================== Auth (Option A: single admin) ====================
 
 def _get_admin_token() -> str:
@@ -131,6 +137,17 @@ def auth_me(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail='Invalid token')
     return {'logged_in': True, 'username': Config.ADMIN_USERNAME}
 
+
+def require_auth(authorization: Optional[str] = Header(None)) -> Any:
+    """Require Bearer token (same as admin token)."""
+    if not authorization or not authorization.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail='Not authenticated')
+    token = authorization.replace('Bearer ', '', 1).strip()
+    if token != _get_admin_token():
+        raise HTTPException(status_code=401, detail='Invalid token')
+    return True
+
+
 # ==================== API Endpoints ====================
 
 @app.get("/")
@@ -154,7 +171,8 @@ def root():
             "outfits_update": "PUT /api/outfits/{outfit_id}",
             "outfits_delete": "DELETE /api/outfits/{outfit_id}",
             "feedback_record": "POST /api/feedback",
-            "feedback_suggest": "GET /api/feedback/suggest"
+            "feedback_suggest": "GET /api/feedback/suggest",
+            "chat_outfit": "POST /api/chat/outfit-suggest"
         }
     }
 
@@ -511,6 +529,23 @@ def record_feedback(data: FeedbackRequest, db: Session = Depends(get_db)):
     db.commit()
     total = db.query(OutfitFeedback).count()
     return {"success": True, "feedback_id": fb.id, "total_feedback": total}
+
+
+@app.post("/api/chat/outfit-suggest")
+def outfit_chat_suggest(
+    data: OutfitChatRequest,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_auth),
+):
+    """
+    AI outfit suggestion: RAG (Chroma) + Ollama, or rule-based fallback if Ollama is down.
+    Requires Authorization: Bearer <token> (same as login).
+    """
+    msg = (data.message or "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="message is required")
+    all_items = db.query(ClothingItem).all()
+    return build_outfit_suggestion(msg, all_items, regenerate=data.regenerate)
 
 
 @app.get("/api/feedback/suggest")
