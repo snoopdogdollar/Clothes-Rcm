@@ -7,6 +7,7 @@ import json
 import logging
 import random
 import re
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -21,9 +22,34 @@ SLOT_CATEGORIES = {
     "shoes": ["casual_shoe", "formal_shoe", "sport shoes"],
 }
 
+MAX_RAG_TEXT_CHARS = 1000
+MAX_WARDROBE_JSON_CHARS = 800
+
 
 def _looks_vietnamese(text: str) -> bool:
     return bool(re.search(r"[\u00C0-\u1EF9]", text))
+
+
+def _sanitize_reply_text(s: str) -> str:
+    """Strip top_id/bottom_id/shoes_id mentions from natural-language reply."""
+    if not s:
+        return s
+    s = re.sub(
+        r"\s*[\(\[]\s*(?:top|bottom|shoes)_id\s*:\s*\d+\s*[\)\]]",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    )
+    s = re.sub(
+        r"\s*,?\s*\b(?:top|bottom|shoes)_id\s*:\s*\d+\b",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    )
+    s = re.sub(r"\s{2,}", " ", s)
+    s = re.sub(r"\s+,", ",", s)
+    s = re.sub(r",\s*,", ",", s)
+    return s.strip()
 
 
 def ollama_available(timeout: float = 2.0) -> bool:
@@ -39,10 +65,7 @@ def ollama_available(timeout: float = 2.0) -> bool:
 
 
 def ollama_embed(text: str) -> List[float]:
-    """
-    Embeddings via Ollama — must match ingest/Langflow (e.g. nomic-embed-text).
-    POST /api/embeddings
-    """
+    """Embeddings via Ollama — must match ingest/Langflow (e.g. nomic-embed-text)."""
     url = f"{Config.OLLAMA_BASE_URL.rstrip('/')}/api/embeddings"
     payload = {"model": Config.OLLAMA_EMBED_MODEL, "prompt": text}
     with httpx.Client(timeout=Config.OLLAMA_EMBED_TIMEOUT) as client:
@@ -55,10 +78,11 @@ def ollama_embed(text: str) -> List[float]:
         return emb
 
 
-def chroma_query_rules(user_message: str, k: int = 5) -> List[str]:
-    """Retrieve top-k rule chunks using same embeddings as indexed data (Ollama nomic-embed-text)."""
+def chroma_query_rules(user_message: str, k: int) -> Tuple[List[str], float]:
+    """Retrieve top-k rule chunks; returns (chunks, elapsed_seconds)."""
+    t0 = time.perf_counter()
     if not Config.CHROMA_PERSIST_DIR:
-        return []
+        return [], time.perf_counter() - t0
     try:
         import chromadb
 
@@ -72,15 +96,15 @@ def chroma_query_rules(user_message: str, k: int = 5) -> List[str]:
         )
         docs = res.get("documents") or []
         if not docs or not docs[0]:
-            return []
-        return [d for d in docs[0] if d]
+            return [], time.perf_counter() - t0
+        chunks = [d for d in docs[0] if d]
+        return chunks, time.perf_counter() - t0
     except Exception as e:
         logger.warning("Chroma query failed: %s", e)
-        return []
+        return [], time.perf_counter() - t0
 
 
-def _wardrobe_compact(items: List[Any], max_items: int = 48) -> List[Dict[str, Any]]:
-    """Keep prompt small for CPU / faster generation."""
+def _wardrobe_compact(items: List[Any], max_items: int) -> List[Dict[str, Any]]:
     out = []
     for i in items[:max_items]:
         out.append(
@@ -94,9 +118,26 @@ def _wardrobe_compact(items: List[Any], max_items: int = 48) -> List[Dict[str, A
     return out
 
 
-def _pick_first_slot(
-    items: List[Any], slot: str
-) -> Optional[Any]:
+def _wardrobe_json_limited(all_items: List[Any]) -> str:
+    for n in (16, 12, 8, 6, 4, 3):
+        s = json.dumps(_wardrobe_compact(all_items, n), ensure_ascii=False)
+        if len(s) <= MAX_WARDROBE_JSON_CHARS:
+            return s
+    return json.dumps(_wardrobe_compact(all_items, 2), ensure_ascii=False)[
+        :MAX_WARDROBE_JSON_CHARS
+    ]
+
+
+def _rag_text_limited(chunks: List[str]) -> str:
+    if not chunks:
+        return ""
+    raw = "\n".join(chunks)
+    if len(raw) <= MAX_RAG_TEXT_CHARS:
+        return raw
+    return raw[: MAX_RAG_TEXT_CHARS - 3] + "..."
+
+
+def _pick_first_slot(items: List[Any], slot: str) -> Optional[Any]:
     cats = set(SLOT_CATEGORIES[slot])
     for it in items:
         if it.category in cats:
@@ -107,7 +148,6 @@ def _pick_first_slot(
 def _fallback_outfit(
     all_items: List[Any], user_message: str, offline: bool = True
 ) -> Tuple[str, Optional[int], Optional[int], Optional[int], List[str]]:
-    """Rule-based when Ollama is unreachable (offline=True) or LLM failed after connect (offline=False)."""
     tops = [i for i in all_items if i.category in SLOT_CATEGORIES["top"]]
     bottoms = [i for i in all_items if i.category in SLOT_CATEGORIES["bottom"]]
     shoes = [i for i in all_items if i.category in SLOT_CATEGORIES["shoes"]]
@@ -115,7 +155,6 @@ def _fallback_outfit(
     msg_l = user_message.lower()
     shopping: List[str] = []
 
-    # Very light keyword bias (VN + EN)
     def prefer_light(items):
         for w in ("nóng", "summer", "nắng", "hot", "beach"):
             if w in msg_l or w in user_message:
@@ -169,29 +208,102 @@ def _fallback_outfit(
     )
 
 
-def _call_ollama_generate(prompt: str) -> str:
+def _call_ollama_generate(prompt: str) -> Tuple[str, float]:
     url = f"{Config.OLLAMA_BASE_URL.rstrip('/')}/api/generate"
     payload = {
         "model": Config.OLLAMA_MODEL,
         "prompt": prompt,
         "stream": False,
-        "options": {"temperature": 0.35, "num_predict": 512},
+        "options": {
+            "temperature": Config.OLLAMA_GENERATE_TEMPERATURE,
+            "num_predict": Config.OLLAMA_NUM_PREDICT,
+        },
     }
     timeout = httpx.Timeout(
-        connect=15.0,
+        connect=10.0,
         read=Config.OLLAMA_GENERATE_TIMEOUT,
-        write=15.0,
-        pool=15.0,
+        write=10.0,
+        pool=10.0,
     )
+    t0 = time.perf_counter()
     with httpx.Client(timeout=timeout) as client:
         r = client.post(url, json=payload)
         r.raise_for_status()
         data = r.json()
-        return (data.get("response") or "").strip()
+        text = (data.get("response") or "").strip()
+    elapsed = time.perf_counter() - t0
+    return text, elapsed
+
+
+def _balanced_json_object(text: str) -> Optional[str]:
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, len(text)):
+        c = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None
+
+
+def _regex_fallback_outfit(text: str) -> Optional[Dict[str, Any]]:
+    if not text:
+        return None
+    reply_m = re.search(r'"reply"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL)
+    reply = reply_m.group(1) if reply_m else None
+    if reply is None:
+        reply_m2 = re.search(r'"reply"\s*:\s*"([^"]*)"', text)
+        reply = reply_m2.group(1) if reply_m2 else None
+    if not reply:
+        return None
+
+    def _id_field(name: str) -> Optional[int]:
+        m = re.search(rf'"{re.escape(name)}"\s*:\s*(null|\d+)', text)
+        if not m:
+            return None
+        if m.group(1) == "null":
+            return None
+        try:
+            return int(m.group(1))
+        except ValueError:
+            return None
+
+    hints: List[str] = []
+    hm = re.search(r'"shopping_hints"\s*:\s*\[(.*?)\]', text, re.DOTALL)
+    if hm:
+        for qm in re.finditer(r'"((?:[^"\\]|\\.)*)"', hm.group(1)):
+            hints.append(qm.group(1))
+    return {
+        "reply": reply.replace("\\n", "\n").replace('\\"', '"'),
+        "top_id": _id_field("top_id"),
+        "bottom_id": _id_field("bottom_id"),
+        "shoes_id": _id_field("shoes_id"),
+        "shopping_hints": hints[:5],
+    }
 
 
 def _parse_json_from_llm(text: str) -> Optional[Dict[str, Any]]:
-    text = text.strip()
+    text = (text or "").strip()
+    if not text:
+        return None
     if text.startswith("```"):
         parts = text.split("```")
         if len(parts) >= 2:
@@ -199,16 +311,28 @@ def _parse_json_from_llm(text: str) -> Optional[Dict[str, Any]]:
             if inner.lstrip().startswith("json"):
                 inner = inner.lstrip()[4:]
             text = inner.strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        m = re.search(r"\{[\s\S]*\}", text)
-        if m:
-            try:
-                return json.loads(m.group(0))
-            except json.JSONDecodeError:
-                pass
-    return None
+
+    candidates: List[str] = [text]
+    bal = _balanced_json_object(text)
+    if bal:
+        candidates.append(bal)
+    m = re.search(r"\{[\s\S]*\}", text)
+    if m:
+        candidates.append(m.group(0))
+
+    seen: set[str] = set()
+    for cand in candidates:
+        if cand in seen:
+            continue
+        seen.add(cand)
+        try:
+            obj = json.loads(cand)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            continue
+
+    return _regex_fallback_outfit(text)
 
 
 def _validate_ids(
@@ -233,15 +357,17 @@ def build_outfit_suggestion(
     all_items: List[Any],
     regenerate: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Returns dict: reply, top_id, bottom_id, shoes_id, shopping_hints, used_rag, used_llm
-    """
     by_id = {i.id: i for i in all_items}
-    wardrobe_json = json.dumps(_wardrobe_compact(all_items), ensure_ascii=False)[:8000]
+    wardrobe_json = _wardrobe_json_limited(all_items)
 
-    rag_chunks = chroma_query_rules(user_message, k=Config.CHROMA_QUERY_K)
+    k = Config.CHROMA_QUERY_K
+    rag_chunks, rag_s = chroma_query_rules(user_message, k=k)
     used_rag = len(rag_chunks) > 0
-    rag_text = "\n---\n".join(rag_chunks) if rag_chunks else "(no retrieved rules; use general good taste)"
+    rag_text = _rag_text_limited(rag_chunks)
+    if not rag_text:
+        rag_text = "(none)"
+
+    logger.info("outfit_chat rag_retrieval_ms=%.1f", rag_s * 1000)
 
     if not ollama_available():
         reply, tid, bid, sid, shop = _fallback_outfit(all_items, user_message, offline=True)
@@ -256,43 +382,33 @@ def build_outfit_suggestion(
             "fallback": True,
         }
 
-    lang_hint = (
-        "Reply in Vietnamese."
-        if _looks_vietnamese(user_message)
-        else "Reply in English."
+    lang = "VI" if _looks_vietnamese(user_message) else "EN"
+    reg = "alt" if regenerate else "1st"
+
+    prompt = (
+        f"Fashion assistant. Lang:{lang}. Reg:{reg}.\n"
+        f"Rules:\n{rag_text}\n\n"
+        f"Wardrobe JSON:\n{wardrobe_json}\n\n"
+        f"User: {user_message}\n\n"
+        "Reply: 1 short paragraph of natural styling advice only. Do NOT mention item ids, "
+        "top_id, bottom_id, shoes_id, or numbers in parentheses in the reply text.\n"
+        "Pick top_id,bottom_id,shoes_id from wardrobe JSON only "
+        "(categories: top=t-shirt,shirt,hoodie,sweater,jacket; bottom=jeans,trousers,shorts; "
+        "shoes=casual_shoe,formal_shoe,sport shoes). null+shopping_hints if missing.\n"
+        'JSON only: {"reply":"...","top_id":null,"bottom_id":null,"shoes_id":null,"shopping_hints":[]}'
     )
 
-    prompt = f"""You are a fashion assistant. {lang_hint}
-
-Fashion rules (from knowledge base):
-{rag_text}
-
-User wardrobe (JSON array of items with id, category, primary_color, material):
-{wardrobe_json}
-
-User request:
-{user_message}
-
-Instructions:
-1) Give practical styling advice in 2-4 short paragraphs.
-2) Pick item ids from the wardrobe JSON ONLY for top, bottom, shoes slots when possible. Categories must match:
-   - top: t-shirt, shirt, hoodie, sweater, jacket
-   - bottom: jeans, trousers, shorts
-   - shoes: casual_shoe, formal_shoe, sport shoes
-3) If a slot cannot be filled from wardrobe, set that id to null and add a short shopping hint to shopping_hints array.
-4) Respond with ONLY valid JSON (no markdown), exactly this shape:
-{{"reply":"...","top_id":null,"bottom_id":null,"shoes_id":null,"shopping_hints":[]}}
-
-Optional regenerate hint: {"user asked for another option" if regenerate else "first suggestion"}
-"""
-
     try:
-        raw = _call_ollama_generate(prompt)
+        raw, llm_s = _call_ollama_generate(prompt)
+        logger.info("outfit_chat llm_generate_ms=%.1f", llm_s * 1000)
+
         parsed = _parse_json_from_llm(raw)
         if not parsed:
-            raise ValueError("LLM did not return JSON")
+            raise ValueError("LLM did not return parseable JSON")
 
-        reply = str(parsed.get("reply") or "Here is a suggestion.").strip()
+        reply = _sanitize_reply_text(
+            str(parsed.get("reply") or "Here is a suggestion.").strip()
+        )
         tid, bid, sid = _validate_ids(
             parsed.get("top_id"),
             parsed.get("bottom_id"),
@@ -304,7 +420,6 @@ Optional regenerate hint: {"user asked for another option" if regenerate else "f
             hints = []
         hints = [str(h) for h in hints][:5]
 
-        # Fill missing slots with first available if LLM left null but we have stock
         if tid is None:
             t = _pick_first_slot(all_items, "top")
             tid = t.id if t else None
